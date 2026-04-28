@@ -1,0 +1,25 @@
+{
+  "_comment_type": "type=8 是自定义 OpenAI 兼容上游（最常见的第三方中转）",
+  "_comment_warning": "第三方质量参差，priority 给 50 做兜底；失败阈值放低（连续 2 次就禁用）",
+  "_comment_quality": "搭配 scripts/channel-healthcheck.sh 每小时巡检，质量降级直接禁用",
+  "_comment_pricing": "倍率打折但绝不要倒挂：成本 0.5× 不能卖 0.4×",
+
+  "name": "Third-party Relay #FILL_PROVIDER",
+  "type": 8,
+  "key": "sk-REPLACE_ME",
+  "base_url": "https://relay.example.com",
+  "other": "",
+
+  "models": "gpt-4o,gpt-4o-mini,gpt-4-turbo,claude-sonnet-4,claude-haiku-4,gemini-2.5-pro,gemini-2.5-flash",
+
+  "group": "third-party",
+  "priority": 50,
+  "weight": 30,
+  "status": 1,
+
+  "model_mapping": "{}",
+  "auto_ban": 1,
+  "test_model": "gpt-4o-mini",
+
+  "_comment_aban_threshold": "管理后台 → 监控设置 里把这个分组的失败禁用阈值设到 2"
+}

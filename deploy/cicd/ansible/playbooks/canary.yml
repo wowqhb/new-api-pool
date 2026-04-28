@@ -1,0 +1,17 @@
+# 灰度部署：只部署到带 weight=10 的实例（gw-canary）
+# 用法：ansible-playbook -i inventories/production.yml playbooks/canary.yml -e image_tag=...
+
+- name: Canary deploy
+  hosts: gateways
+  become: yes
+  serial: 1
+  vars:
+    image_tag: "{{ image_tag | default('latest') }}"
+
+  pre_tasks:
+    - name: Skip non-canary hosts
+      meta: end_play
+      when: weight != 10
+
+  tasks:
+    - import_tasks: deploy.yml

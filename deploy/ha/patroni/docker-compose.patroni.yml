@@ -1,0 +1,123 @@
+services:
+  etcd1:
+    image: bitnami/etcd:3.5
+    container_name: etcd1
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_NAME: etcd1
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd1:2380
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd1:2379
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-cluster-1
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+    networks: [haproxy-net]
+    volumes: [etcd1_data:/bitnami/etcd]
+
+  etcd2:
+    image: bitnami/etcd:3.5
+    container_name: etcd2
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_NAME: etcd2
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd2:2380
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd2:2379
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-cluster-1
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+    networks: [haproxy-net]
+    volumes: [etcd2_data:/bitnami/etcd]
+
+  etcd3:
+    image: bitnami/etcd:3.5
+    container_name: etcd3
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_NAME: etcd3
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd3:2380
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd3:2379
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-cluster-1
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+    networks: [haproxy-net]
+    volumes: [etcd3_data:/bitnami/etcd]
+
+  patroni1:
+    image: ghcr.io/zalando/spilo-16:3.2-p1
+    container_name: patroni1
+    hostname: patroni1
+    environment:
+      ETCD3_HOSTS: etcd1:2379,etcd2:2379,etcd3:2379
+      PGUSER_SUPERUSER: postgres
+      PGPASSWORD_SUPERUSER: ${PG_SUPERUSER_PASSWORD}
+      PGUSER_ADMIN: ${PG_USER}
+      PGPASSWORD_ADMIN: ${PG_PASSWORD}
+      PGUSER_STANDBY: replicator
+      PGPASSWORD_STANDBY: ${PG_REPLICATION_PASSWORD}
+      SCOPE: newapi-cluster
+      PATRONI_NAME: patroni1
+    ports: ["5432:5432"]
+    networks: [haproxy-net]
+    volumes: [patroni1_data:/home/postgres/pgdata]
+
+  patroni2:
+    image: ghcr.io/zalando/spilo-16:3.2-p1
+    container_name: patroni2
+    hostname: patroni2
+    environment:
+      ETCD3_HOSTS: etcd1:2379,etcd2:2379,etcd3:2379
+      PGUSER_SUPERUSER: postgres
+      PGPASSWORD_SUPERUSER: ${PG_SUPERUSER_PASSWORD}
+      PGUSER_ADMIN: ${PG_USER}
+      PGPASSWORD_ADMIN: ${PG_PASSWORD}
+      PGUSER_STANDBY: replicator
+      PGPASSWORD_STANDBY: ${PG_REPLICATION_PASSWORD}
+      SCOPE: newapi-cluster
+      PATRONI_NAME: patroni2
+    ports: ["5433:5432"]
+    networks: [haproxy-net]
+    volumes: [patroni2_data:/home/postgres/pgdata]
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22
+    container_name: pgbouncer
+    environment:
+      DATABASES_HOST: haproxy
+      DATABASES_PORT: 5000
+      DATABASES_USER: ${PG_USER}
+      DATABASES_PASSWORD: ${PG_PASSWORD}
+      DATABASES_DBNAME: ${PG_DB}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 5000
+      DEFAULT_POOL_SIZE: 50
+      AUTH_TYPE: scram-sha-256
+    ports: ["6432:5432"]
+    networks: [haproxy-net]
+
+  haproxy:
+    image: haproxy:2.9
+    container_name: pg-haproxy
+    networks: [haproxy-net]
+    ports:
+      - "5000:5000"  # primary
+      - "5001:5001"  # replica
+      - "8404:8404"  # stats
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+
+networks:
+  haproxy-net:
+    external: true
+    name: newapi-net
+
+volumes:
+  etcd1_data: {}
+  etcd2_data: {}
+  etcd3_data: {}
+  patroni1_data: {}
+  patroni2_data: {}

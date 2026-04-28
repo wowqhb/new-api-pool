@@ -49,6 +49,13 @@ const routerMap = {
   deployment: '/console/deployment',
   playground: '/console/playground',
   personal: '/console/personal',
+  // 号池管理（一级 + 6 子菜单）
+  pool: '/console/pool/overview',
+  'pool-overview': '/console/pool/overview',
+  'pool-accounts': '/console/pool/accounts',
+  'pool-recipes': '/console/pool/recipes',
+  'pool-billing': '/console/pool/billing',
+  'pool-alerts': '/console/pool/alerts',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -154,6 +161,18 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
+        text: t('号池管理'),
+        itemKey: 'pool',
+        className: isAdmin() ? '' : 'tableHiddle',
+        items: [
+          { text: t('总览'), itemKey: 'pool-overview' },
+          { text: t('上游账号'), itemKey: 'pool-accounts' },
+          { text: t('自动注册'), itemKey: 'pool-recipes' },
+          { text: t('收支对账'), itemKey: 'pool-billing' },
+          { text: t('巡检告警'), itemKey: 'pool-alerts' },
+        ],
+      },
+      {
         text: t('订阅管理'),
         itemKey: 'subscription',
         to: '/subscription',
@@ -191,8 +210,9 @@ const SiderBar = ({ onNavigate = () => {} }) => {
       },
     ];
 
-    // 根据配置过滤项目
+    // 根据配置过滤项目（pool 是新增项，无后端配置时默认可见）
     const filteredItems = items.filter((item) => {
+      if (item.itemKey === 'pool') return true;
       const configVisible = isModuleVisible('admin', item.itemKey);
       return configVisible;
     });
@@ -483,7 +503,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
                 {!collapsed && (
                   <div className='sidebar-group-label'>{t('管理员')}</div>
                 )}
-                {adminItems.map((item) => renderNavItem(item))}
+                {adminItems.map((item) => renderSubItem(item))}
               </div>
             </>
           )}

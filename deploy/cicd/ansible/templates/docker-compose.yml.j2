@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  new-api:
+    image: {{ image_tag }}
+    container_name: new-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - SQL_DSN={{ sql_dsn }}
+      - REDIS_CONN_STRING={{ redis_conn_string }}
+      - LOG_SQL_DSN={{ log_sql_dsn }}
+      - SESSION_SECRET={{ session_secret }}
+      - CRYPTO_SECRET={{ crypto_secret }}
+      - MEMORY_CACHE_ENABLED=true
+      - CHANNEL_UPDATE_FREQUENCY=60
+      - TZ=Asia/Shanghai
+      - ERROR_LOG_ENABLED=true
+      - STREAMING_TIMEOUT=300
+      - METRICS_ENABLED=true
+    volumes:
+      - {{ compose_dir }}/data:/data
+      - {{ compose_dir }}/logs:/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+    logging:
+      driver: json-file
+      options:
+        max-size: 100m
+        max-file: "5"

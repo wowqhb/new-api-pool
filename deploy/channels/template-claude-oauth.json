@@ -1,0 +1,30 @@
+{
+  "_comment_type": "type=14 + base_url 配置成 Claude Code OAuth 网关",
+  "_comment_key": "OAuth access token，通常 sk-ant-oat01-... 开头",
+  "_comment_warning": "每个 Claude 账号一个独立渠道，方便监控 5h 滚动窗",
+  "_comment_refresh": "access token 会过期（一般 1 年），到期前通过 refresh_token 刷新；建议用外挂脚本 + new-api 的 PUT /api/channel/{id} 自动更新",
+
+  "name": "Claude OAuth Account #FILL_EMAIL",
+  "type": 14,
+  "key": "sk-ant-oat01-REPLACE_ME",
+  "base_url": "https://api.anthropic.com",
+
+  "models": "claude-opus-4-20250514,claude-sonnet-4-20250514,claude-haiku-4-20250514,claude-3-5-sonnet-20241022,claude-3-5-haiku-20241022",
+
+  "group": "claude-oauth",
+  "priority": 150,
+  "weight": 50,
+  "status": 1,
+
+  "model_mapping": "{}",
+  "auto_ban": 1,
+  "test_model": "claude-3-5-haiku-20241022",
+
+  "_comment_oauth_metadata": "下面这些字段建议存在 channel 的 other 或 setting 里以便外挂脚本读取",
+  "setting": {
+    "refresh_token": "REPLACE_ME_REFRESH_TOKEN",
+    "expires_at": 0,
+    "account_email": "user@example.com",
+    "subscription": "max"
+  }
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"log"
@@ -136,6 +137,13 @@ func main() {
 		common.BatchUpdateEnabled = true
 		common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")
 		model.InitBatchUpdater()
+	}
+
+	// 号池管理：启动后台巡检 cron（默认 5 分钟一次，主节点才跑）
+	if common.IsMasterNode {
+		service.StartPoolHealthCron(context.Background())
+		// 全自动注册 worker：消费 pool_jobs 中 status=pending 且 recipe.manual_mode=false 的任务
+		service.StartPoolWorker(context.Background())
 	}
 
 	if os.Getenv("ENABLE_PPROF") == "true" {

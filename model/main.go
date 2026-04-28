@@ -280,6 +280,11 @@ func migrateDB() error {
 		&SubscriptionPreConsumeRecord{},
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
+		// Pool Management 系列
+		&PoolAccount{},
+		&PoolAlertHistory{},
+		&PoolRecipe{},
+		&PoolJob{},
 	)
 	if err != nil {
 		return err
@@ -292,6 +297,30 @@ func migrateDB() error {
 		if err := DB.AutoMigrate(&SubscriptionPlan{}); err != nil {
 			return err
 		}
+	}
+	// upsert 默认 Recipe（保留用户已修改的字段）
+	if err := SeedDefaultPoolRecipes(); err != nil {
+		common.SysLog("failed to seed default pool recipes: " + err.Error())
+	}
+	// 默认 Telegram 通道：可通过环境变量覆盖（POOL_TELEGRAM_BOT_TOKEN / POOL_TELEGRAM_CHAT_ID）。
+	// 开源版默认留空，请在「号池管理 → 巡检告警 → ⚙️ Telegram 设置」里填，
+	// 或启动前 export 环境变量。
+	tgToken := os.Getenv("POOL_TELEGRAM_BOT_TOKEN")
+	tgChat := os.Getenv("POOL_TELEGRAM_CHAT_ID")
+	if tgToken != "" && tgChat != "" {
+		if err := SeedDefaultTelegramConfig(tgToken, tgChat); err != nil {
+			common.SysLog("failed to seed default telegram config: " + err.Error())
+		}
+	}
+	// 默认号池自动化配置：可通过环境变量覆盖（POOL_FIVESIM_API_KEY / POOL_SMS_ACTIVATE_API_KEY）。
+	// 开源版默认留空，请在「号池管理 → 自动注册 → ⚙️ 自动化设置」里填。
+	if err := SeedDefaultAutomationConfig(
+		"mailtm",
+		"5sim",
+		os.Getenv("POOL_FIVESIM_API_KEY"),
+		os.Getenv("POOL_SMS_ACTIVATE_API_KEY"),
+	); err != nil {
+		common.SysLog("failed to seed default automation config: " + err.Error())
 	}
 	return nil
 }

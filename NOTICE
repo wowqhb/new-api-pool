@@ -1,0 +1,67 @@
+new-api-pool
+================================================================================
+A hard fork of QuantumNous/new-api with integrated Key Pool Management.
+Licensed under the GNU Affero General Public License version 3 (AGPL-3.0).
+See LICENSE for the full text of the license.
+
+Upstream attribution
+--------------------------------------------------------------------------------
+The vast majority of this codebase originates from:
+
+  * Project:     QuantumNous/new-api
+  * Repository:  https://github.com/QuantumNous/new-api
+  * License:     AGPL-3.0
+  * Predecessor: https://github.com/songquanpeng/one-api
+
+All credit for the LLM Gateway core (relay/, channel adapters, billing primitives,
+admin UI scaffolding, multi-language i18n, Midjourney bridge, and most utility
+packages) belongs to QuantumNous and the original new-api / one-api contributors.
+
+Fork-specific additions (this fork's own copyright contributions)
+--------------------------------------------------------------------------------
+The following files / directories are net-new in this fork and form the
+"Key Pool Management" subsystem:
+
+  Backend:
+    controller/pool.go
+    router/pool-router.go
+    model/pool_account.go
+    model/pool_recipe.go
+    model/pool_alert.go
+    service/pool_worker.go
+    service/pool_runners.go
+    service/pool_email.go
+    service/pool_mailtm.go
+    service/pool_sms.go
+    service/pool_health.go
+
+  Frontend:
+    web/src/pages/Pool/  (Layout / Overview / Accounts / Recipes / Billing / Alerts)
+    + sidebar registration in web/src/components/layout/SiderBar.jsx
+    + lazy routes in web/src/App.jsx
+
+  Documentation:
+    docs-pool/  (24 engineering docs)
+
+  Deployment blueprints:
+    deploy/  (12-week roadmap, prod compose, caddy, monitoring,
+              runbooks, legal templates)
+
+These additions are also licensed under AGPL-3.0 (same as upstream).
+
+Third-party services referenced (not bundled)
+--------------------------------------------------------------------------------
+The Pool subsystem can integrate with the following external services. Each is
+governed by its own Terms of Service. Use of any of these is the operator's
+responsibility:
+
+  * mail.tm                — disposable email API
+  * 5sim.net               — paid SMS verification numbers
+  * sms-activate.org       — paid SMS verification numbers (alternative)
+  * Telegram Bot API       — operator alerting
+
+Logos / brand names
+--------------------------------------------------------------------------------
+The original "new-api" logo at web/public/logo.png remains the property of the
+upstream project. If you fork this project further and rebrand it, replace
+the logo and all "new-api" references in your fork's user-facing strings.

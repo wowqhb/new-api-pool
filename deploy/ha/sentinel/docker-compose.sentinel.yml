@@ -1,0 +1,111 @@
+x-redis-base: &redis-base
+  image: redis:7-alpine
+  restart: always
+  networks: [haproxy-net]
+
+services:
+  redis-master:
+    <<: *redis-base
+    container_name: redis-master
+    command: >
+      redis-server
+        --requirepass ${REDIS_PASSWORD}
+        --masterauth ${REDIS_PASSWORD}
+        --appendonly yes
+        --appendfsync everysec
+        --maxmemory 1gb
+        --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_master_data:/data
+
+  redis-replica-1:
+    <<: *redis-base
+    container_name: redis-replica-1
+    command: >
+      redis-server
+        --requirepass ${REDIS_PASSWORD}
+        --masterauth ${REDIS_PASSWORD}
+        --replicaof redis-master 6379
+        --appendonly yes
+        --maxmemory 1gb
+        --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_replica1_data:/data
+
+  redis-replica-2:
+    <<: *redis-base
+    container_name: redis-replica-2
+    command: >
+      redis-server
+        --requirepass ${REDIS_PASSWORD}
+        --masterauth ${REDIS_PASSWORD}
+        --replicaof redis-master 6379
+        --appendonly yes
+        --maxmemory 1gb
+        --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_replica2_data:/data
+
+  sentinel-1:
+    <<: *redis-base
+    container_name: redis-sentinel-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /tmp/sentinel.conf <<EOF
+        port 26379
+        sentinel monitor mymaster redis-master 6379 2
+        sentinel auth-pass mymaster $$REDIS_PASSWORD
+        sentinel down-after-milliseconds mymaster 5000
+        sentinel parallel-syncs mymaster 1
+        sentinel failover-timeout mymaster 60000
+        sentinel resolve-hostnames yes
+        sentinel announce-hostnames yes
+        EOF
+        exec redis-sentinel /tmp/sentinel.conf
+
+  sentinel-2:
+    <<: *redis-base
+    container_name: redis-sentinel-2
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /tmp/sentinel.conf <<EOF
+        port 26379
+        sentinel monitor mymaster redis-master 6379 2
+        sentinel auth-pass mymaster $$REDIS_PASSWORD
+        sentinel down-after-milliseconds mymaster 5000
+        sentinel parallel-syncs mymaster 1
+        sentinel failover-timeout mymaster 60000
+        sentinel resolve-hostnames yes
+        sentinel announce-hostnames yes
+        EOF
+        exec redis-sentinel /tmp/sentinel.conf
+
+  sentinel-3:
+    <<: *redis-base
+    container_name: redis-sentinel-3
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /tmp/sentinel.conf <<EOF
+        port 26379
+        sentinel monitor mymaster redis-master 6379 2
+        sentinel auth-pass mymaster $$REDIS_PASSWORD
+        sentinel down-after-milliseconds mymaster 5000
+        sentinel parallel-syncs mymaster 1
+        sentinel failover-timeout mymaster 60000
+        sentinel resolve-hostnames yes
+        sentinel announce-hostnames yes
+        EOF
+        exec redis-sentinel /tmp/sentinel.conf
+
+networks:
+  haproxy-net:
+    external: true
+    name: newapi-net
+
+volumes:
+  redis_master_data: {}
+  redis_replica1_data: {}
+  redis_replica2_data: {}

@@ -1,0 +1,143 @@
+name: Deploy Production
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag or commit to deploy'
+        required: true
+      skip_canary:
+        description: 'Skip canary stage (DANGEROUS)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/new-api
+          tags: |
+            type=ref,event=tag
+            type=sha,prefix=prod-
+      - name: Build & Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  approve:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production-approval
+    steps:
+      - run: echo "已批准生产部署"
+
+  canary:
+    needs: approve
+    if: ${{ !inputs.skip_canary }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy 1 instance (10%)
+        run: |
+          pip install ansible
+          cd deploy/cicd/ansible
+          ansible-playbook -i inventories/production.yml playbooks/canary.yml \
+              -e "image_tag=${{ needs.build.outputs.image }}"
+
+      - name: Wait & Monitor (15 min)
+        run: bash deploy/cicd/scripts/canary-monitor.sh 900
+        env:
+          PROM_URL: ${{ secrets.PROD_PROM_URL }}
+
+      - name: Smoke Test (canary)
+        run: bash deploy/testing/smoke/run.sh
+        env:
+          TEST_BASE_URL: https://api-canary.example.com
+          TEST_API_KEY: ${{ secrets.PROD_TEST_KEY }}
+
+  full-rollout:
+    needs: canary
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy 100%
+        run: |
+          pip install ansible
+          cd deploy/cicd/ansible
+          ansible-playbook -i inventories/production.yml playbooks/deploy.yml \
+              -e "image_tag=${{ needs.build.outputs.image }}"
+
+      - name: Final Smoke
+        run: bash deploy/testing/smoke/run.sh
+        env:
+          TEST_BASE_URL: https://api.example.com
+          TEST_API_KEY: ${{ secrets.PROD_TEST_KEY }}
+
+      - name: Tag & Notify
+        run: |
+          curl -fsS "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d "text=✅ 生产部署完成：${{ github.ref_name }}"
+
+  rollback-on-failure:
+    needs: [canary, full-rollout]
+    if: failure()
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Auto-rollback
+        run: |
+          pip install ansible
+          cd deploy/cicd/ansible
+          ansible-playbook -i inventories/production.yml playbooks/rollback.yml
+      - name: Notify
+        run: |
+          curl -fsS "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d "text=❌ 部署失败已自动回滚：${{ github.ref_name }}"

@@ -1,0 +1,52 @@
+groups:
+  - name: business
+    interval: 60s
+    rules:
+      # ───── 渠道异常 ─────
+      - alert: ChannelMassFailure
+        expr: |
+          sum by (channel) (rate(newapi_llm_request_total{status=~"4..|5.."}[10m]))
+          /
+          sum by (channel) (rate(newapi_llm_request_total[10m])) > 0.5
+        for: 10m
+        labels:
+          severity: P2
+          team: ops
+        annotations:
+          summary: "渠道 {{ $labels.channel }} 失败率 > 50%"
+          description: "建议查看是否被风控/欠费/Key 失效。"
+
+      # ───── 用户异常消耗（防刷）─────
+      # 单个用户 1 小时输出 token > 5M（按需调）
+      - alert: UserAbnormalSpike
+        expr: |
+          sum by (user) (increase(newapi_llm_output_token_total[1h])) > 5000000
+        for: 5m
+        labels:
+          severity: P1
+          team: ops
+        annotations:
+          summary: "用户 {{ $labels.user }} 1h 输出 > 5M tokens"
+          description: "可能是滥刷或脚本失控。检查日志，必要时冻结账号。"
+
+      # ───── 模型层 TTFT 全面恶化 ─────
+      - alert: ModelTTFTRegression
+        expr: |
+          histogram_quantile(0.50,
+            sum by (le, model) (rate(newapi_llm_first_token_duration_seconds_bucket[15m]))
+          ) > 8
+        for: 15m
+        labels:
+          severity: P2
+        annotations:
+          summary: "模型 {{ $labels.model }} TTFT p50 > 8s"
+
+      # ───── 失败的备份（来自 backup.sh 通过 textfile collector 上报，需配合）─────
+      - alert: BackupFailedToday
+        expr: |
+          time() - new_api_backup_last_success_timestamp_seconds > 86400 * 1.5
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "数据库备份超过 36 小时没成功"

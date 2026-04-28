@@ -2,33 +2,58 @@
 .vscode
 .zed
 .history
-upload
-*.exe
-*.db
-build
-*.db-journal
-logs
-web/dist
-.env
-one-api
-new-api
-/__debug_bin*
 .DS_Store
+.cursor
+
+# Runtime artifacts (must NEVER be committed) ────────────────────────────────
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.db.bak
+*.exe
+new-api
+new-api-macos
+new-api-macos.original-backup
+new-api-linux-x64
+new-api-linux-arm64
+one-api
+backups/
+
+# Build / cache artifacts ─────────────────────────────────────────────────────
+build
+upload
+logs
+data/
+web/dist
+web/bun.lock
+web/node_modules
 tiktoken_cache
 .eslintcache
 .gocache
+.gocache-temp
 .gomodcache/
+.gopath
 .cache
-web/bun.lock
+/__debug_bin*
+
+# Local secrets / personal env ────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# Pool-specific runtime files ─────────────────────────────────────────────────
+/tmp/
+mailtm.txt
+cer_msg*.json
+
+# Misc local stuff ────────────────────────────────────────────────────────────
 plans
 .claude
+.test
+skills-lock.json
+token_estimator_test.go
 
+# Electron (legacy upstream) ──────────────────────────────────────────────────
 electron/node_modules
 electron/dist
-data/
-.gomodcache/
-.gocache-temp
-.gopath
-.test
-token_estimator_test.go
-skills-lock.json

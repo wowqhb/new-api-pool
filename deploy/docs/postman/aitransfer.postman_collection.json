@@ -1,0 +1,100 @@
+{
+  "info": {
+    "name": "AITransfer API",
+    "_postman_id": "f1e2d3c4-b5a6-7890-1234-567890abcdef",
+    "description": "OpenAI / Anthropic / Gemini 兼容协议示例集合。设置环境变量 base_url 与 api_key 后即可使用。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{api_key}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://api.example.com" },
+    { "key": "api_key", "value": "sk-xxxxxxxxxxxxxxxxxxxxxxxx" }
+  ],
+  "item": [
+    {
+      "name": "OpenAI",
+      "item": [
+        {
+          "name": "Chat Completion (basic)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/v1/chat/completions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\"role\":\"user\",\"content\":\"Hello!\"}\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Chat Completion (stream)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/v1/chat/completions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [{\"role\":\"user\",\"content\":\"讲个长故事\"}],\n  \"stream\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Embeddings",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/v1/embeddings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"text-embedding-3-small\",\n  \"input\": \"hello world\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Models",
+          "request": { "method": "GET", "url": "{{base_url}}/v1/models" }
+        }
+      ]
+    },
+    {
+      "name": "Anthropic",
+      "item": [
+        {
+          "name": "Messages (basic)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "anthropic-version", "value": "2023-06-01" }
+            ],
+            "url": "{{base_url}}/v1/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"claude-sonnet-4-5\",\n  \"max_tokens\": 1024,\n  \"messages\": [\n    {\"role\":\"user\",\"content\":\"Hello!\"}\n  ]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gemini",
+      "item": [
+        {
+          "name": "Generate Content",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/v1beta/models/gemini-2.0-flash:generateContent",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contents\": [\n    {\"role\":\"user\",\"parts\":[{\"text\":\"Hello!\"}]}\n  ]\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

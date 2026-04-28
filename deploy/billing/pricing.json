@@ -1,0 +1,73 @@
+{
+  "_comment": "推荐倍率（2026 Q2 行情）。new-api 的参考价以 1$=1¥（new-api 默认 quota 单位）。 model_ratio 是输入相对参考的倍率，completion_ratio 是 output 相对 input 的倍率。",
+  "_review_cycle": "monthly",
+
+  "model_ratios": {
+    "_comment_openai": "数字按 USD/1M tokens 报价 ÷ 2（new-api 内部参考价，相当于 $0.5 = 1 quota）",
+
+    "gpt-4o": 1.25,
+    "gpt-4o-mini": 0.075,
+    "gpt-4-turbo": 5.0,
+    "gpt-4": 15.0,
+    "gpt-3.5-turbo": 0.25,
+    "o1-preview": 7.5,
+    "o1-mini": 1.5,
+
+    "claude-opus-4-20250514": 7.5,
+    "claude-sonnet-4-20250514": 1.5,
+    "claude-haiku-4-20250514": 0.4,
+    "claude-3-5-sonnet-20241022": 1.5,
+    "claude-3-5-haiku-20241022": 0.4,
+
+    "gemini-2.5-pro": 0.625,
+    "gemini-2.5-flash": 0.075,
+    "gemini-2.5-flash-lite": 0.0375,
+    "gemini-2.0-flash": 0.05,
+    "gemini-1.5-pro": 1.25,
+    "gemini-1.5-flash": 0.0375,
+
+    "text-embedding-3-small": 0.01,
+    "text-embedding-3-large": 0.065,
+    "whisper-1": 0.003,
+    "tts-1": 7.5,
+    "dall-e-3": 20.0
+  },
+
+  "completion_ratios": {
+    "_comment": "output / input 比例。OpenAI 大多数是 4×（小模型 3×），Claude 是 5×，Gemini 是 4-5×",
+
+    "gpt-4o": 4,
+    "gpt-4o-mini": 4,
+    "gpt-4-turbo": 3,
+    "gpt-4": 2,
+    "gpt-3.5-turbo": 3,
+    "o1-preview": 4,
+    "o1-mini": 4,
+
+    "claude-opus-4-20250514": 5,
+    "claude-sonnet-4-20250514": 5,
+    "claude-haiku-4-20250514": 5,
+    "claude-3-5-sonnet-20241022": 5,
+    "claude-3-5-haiku-20241022": 5,
+
+    "gemini-2.5-pro": 8,
+    "gemini-2.5-flash": 4,
+    "gemini-2.5-flash-lite": 4,
+    "gemini-2.0-flash": 4,
+    "gemini-1.5-pro": 4,
+    "gemini-1.5-flash": 4
+  },
+
+  "group_ratios": {
+    "_comment": "用户分组的整体加价系数。1.0 = 按成本卖（亏运维）；建议至少 1.2",
+    "vip": 1.5,
+    "default": 1.2,
+    "free": 1.0,
+    "auto": 1.2
+  },
+
+  "channel_overrides": {
+    "_comment": "特定渠道的额外倍率（如第三方便宜货可以打 0.8 折）。空对象表示不覆盖",
+    "third-party-cheap-1": 0.85
+  }
+}

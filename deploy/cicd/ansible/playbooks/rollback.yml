@@ -1,0 +1,77 @@
+# 回滚到上一个稳定 tag
+# 用法：
+#   ansible-playbook -i inventories/production.yml playbooks/rollback.yml
+#   ansible-playbook ... -e rollback_tag=ghcr.io/.../new-api:v0.13.0
+
+- name: Rollback new-api
+  hosts: gateways
+  serial: 2  # 一次回滚 2 台，加速
+  become: yes
+  vars:
+    compose_dir: /opt/new-api
+
+  tasks:
+    - name: Read previous tag
+      slurp:
+        src: "{{ compose_dir }}/PREVIOUS_TAG"
+      register: prev_tag_b64
+      when: rollback_tag is not defined
+
+    - name: Compute rollback target
+      set_fact:
+        target_tag: "{{ rollback_tag | default((prev_tag_b64.content | b64decode).strip()) }}"
+
+    - name: Validate target_tag
+      fail:
+        msg: "无可回滚目标"
+      when: target_tag is not defined or target_tag == ""
+
+    - name: Pull rollback image
+      shell: docker pull {{ target_tag }}
+
+    - name: Drain
+      uri:
+        url: "https://lb.example.com/admin/drain/{{ inventory_hostname }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ lb_admin_token }}"
+      delegate_to: localhost
+      ignore_errors: yes
+
+    - name: Stop old
+      shell: cd {{ compose_dir }} && docker compose stop new-api
+
+    - name: Update image in compose
+      replace:
+        path: "{{ compose_dir }}/docker-compose.yml"
+        regexp: '^(\s*image:).*$'
+        replace: '\1 {{ target_tag }}'
+
+    - name: Start
+      shell: cd {{ compose_dir }} && docker compose up -d new-api
+
+    - name: Healthcheck
+      uri:
+        url: "http://localhost:3000/api/status"
+        status_code: 200
+      retries: 30
+      delay: 2
+
+    - name: Re-attach
+      uri:
+        url: "https://lb.example.com/admin/enable/{{ inventory_hostname }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ lb_admin_token }}"
+      delegate_to: localhost
+
+  post_tasks:
+    - name: Telegram
+      uri:
+        url: "https://api.telegram.org/bot{{ telegram_bot_token }}/sendMessage"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          chat_id: "{{ telegram_chat_id }}"
+          text: "⏪ 已回滚 {{ inventory_hostname }} → {{ target_tag }}"
+      delegate_to: localhost

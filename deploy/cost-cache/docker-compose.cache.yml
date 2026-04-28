@@ -1,0 +1,52 @@
+services:
+  redis-stack:
+    image: redis/redis-stack:7.4.0-v0
+    container_name: redis-stack
+    restart: always
+    command: >
+      redis-server
+        --requirepass ${REDIS_STACK_PASSWORD:-${REDIS_PASSWORD}}
+        --appendonly yes
+        --maxmemory 4gb
+        --maxmemory-policy allkeys-lru
+        --loadmodule /opt/redis-stack/lib/redisearch.so
+        --loadmodule /opt/redis-stack/lib/rejson.so
+    networks: [default]
+    volumes:
+      - redis_stack_data:/data
+    ports:
+      - "127.0.0.1:6390:6379"
+      - "127.0.0.1:8002:8001"  # RedisInsight
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_STACK_PASSWORD:-${REDIS_PASSWORD}}", "PING"]
+      interval: 10s
+      timeout: 3s
+
+  semantic-cache:
+    build: ./semantic-cache
+    container_name: semantic-cache
+    restart: always
+    depends_on:
+      redis-stack:
+        condition: service_healthy
+    environment:
+      REDIS_URL: redis://:${REDIS_STACK_PASSWORD:-${REDIS_PASSWORD}}@redis-stack:6379
+      UPSTREAM: http://router-sidecar:8080
+      EMBEDDING_API: http://new-api-1:3000/v1/embeddings
+      EMBEDDING_MODEL: text-embedding-3-small
+      EMBEDDING_TOKEN: ${SEMANTIC_CACHE_TOKEN}
+      THRESHOLD: 0.05
+      TTL_SECONDS: 3600
+      ENABLED_MODELS: gpt-4o-mini,gpt-4o,gemini-2.5-flash,claude-3-5-haiku-20241022
+    ports:
+      - "127.0.0.1:8081:8081"
+      - "127.0.0.1:9091:9091"
+    networks: [default]
+
+networks:
+  default:
+    external: true
+    name: newapi-net
+
+volumes:
+  redis_stack_data: {}

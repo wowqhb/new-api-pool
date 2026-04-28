@@ -1,0 +1,20 @@
+{
+  "_comment_type": "type=25 是 Gemini（Google AI Studio）",
+  "_comment_key": "AIzaSy... 这种是 AI Studio Key；Vertex 用其它 type",
+
+  "name": "Gemini Official #FILL_ID",
+  "type": 25,
+  "key": "AIzaSyREPLACE_ME",
+  "base_url": "",
+
+  "models": "gemini-2.5-pro,gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash,gemini-1.5-pro,gemini-1.5-flash",
+
+  "group": "official",
+  "priority": 200,
+  "weight": 50,
+  "status": 1,
+
+  "model_mapping": "{}",
+  "auto_ban": 1,
+  "test_model": "gemini-2.5-flash-lite"
+}

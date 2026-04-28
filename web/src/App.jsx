@@ -56,6 +56,12 @@ const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
+const PoolOverview = lazy(() => import('./pages/Pool/Overview'));
+const PoolAccounts = lazy(() => import('./pages/Pool/Accounts'));
+const PoolRecipes = lazy(() => import('./pages/Pool/Recipes'));
+const PoolBilling = lazy(() => import('./pages/Pool/Billing'));
+const PoolAlerts = lazy(() => import('./pages/Pool/Alerts'));
+
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
   return <OAuth2Callback type={provider} />;
@@ -136,6 +142,56 @@ function App() {
           element={
             <AdminRoute>
               <Channel />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/pool/overview'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <PoolOverview />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/pool/accounts'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <PoolAccounts />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/pool/recipes'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <PoolRecipes />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/pool/billing'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <PoolBilling />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/pool/alerts'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <PoolAlerts />
+              </Suspense>
             </AdminRoute>
           }
         />

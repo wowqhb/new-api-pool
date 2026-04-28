@@ -1,0 +1,22 @@
+services:
+  weight-tuner:
+    build: ./weight-tuner
+    container_name: smart-weight-tuner
+    restart: always
+    environment:
+      LOG_DSN: postgresql://${PG_USER}:${PG_PASSWORD}@postgres:5432/${PG_LOG_DB}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
+      API_BASE: http://new-api-1:3000
+      TICK_SECONDS: 60
+      WINDOW_MINUTES: 5
+      MIN_REQUESTS: 20
+      EMA_ALPHA: 0.4
+      DRY_RUN: "false"
+    networks: [default]
+    ports:
+      - "127.0.0.1:9095:9090"
+
+networks:
+  default:
+    external: true
+    name: newapi-net

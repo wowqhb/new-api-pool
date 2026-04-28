@@ -1,0 +1,71 @@
+{
+  "_comment": "默认风控档位。new-api 用 options 表存全局 default，单用户/单 token 在 admin 改",
+
+  "global": {
+    "RegisterEnabled": "false",
+    "EmailVerificationEnabled": "true",
+    "TurnstileCheckEnabled": "true",
+    "PasswordRegisterEnabled": "false",
+    "GitHubOAuthEnabled": "false",
+    "_comment_register": "强烈建议关闭公开注册，仅邀请码进入",
+
+    "QuotaForNewUser": 0,
+    "QuotaForInviter": 1000000,
+    "QuotaForInvitee": 500000,
+    "_comment_quota": "新人不送（防刷），邀请人和被邀请人各得一些奖励",
+
+    "AutomaticDisableChannelEnabled": "true",
+    "AutomaticEnableChannelEnabled": "true",
+    "ChannelDisableThreshold": 5,
+
+    "LogConsumeEnabled": "true",
+    "DisplayInCurrencyEnabled": "false",
+    "DisplayTokenStatEnabled": "true"
+  },
+
+  "default_token": {
+    "_comment": "新建 token 的默认配额（用户分组覆盖）",
+    "default": {
+      "rpm_limit": 60,
+      "tpm_limit": 200000,
+      "max_quota": 10000000,
+      "expire_days": 365,
+      "ip_limit": ""
+    },
+    "vip": {
+      "rpm_limit": 300,
+      "tpm_limit": 2000000,
+      "max_quota": 100000000,
+      "expire_days": 365,
+      "ip_limit": ""
+    },
+    "free": {
+      "rpm_limit": 10,
+      "tpm_limit": 50000,
+      "max_quota": 500000,
+      "expire_days": 30,
+      "ip_limit": ""
+    }
+  },
+
+  "user_daily_caps": {
+    "_comment": "用户每日消耗上限（quota 单位，500000 ≈ $1）",
+    "vip": 500000000,
+    "default": 5000000,
+    "free": 500000
+  },
+
+  "model_whitelists": {
+    "_comment": "用户分组的模型白名单。空数组 = 不限制",
+    "vip": [],
+    "default": [],
+    "free": [
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gpt-4o-mini",
+      "claude-3-5-haiku-20241022"
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "_comment_type": "type=1 表示 OpenAI 官方接口",
+  "_comment_key": "把 sk-... 填到 key；多 Key 用换行分隔",
+  "_comment_priority": "官方 Key priority=200（最高优先）",
+  "_comment_models": "models 是逗号分隔的可用模型；按你账号实际能调的填",
+
+  "name": "OpenAI Official #FILL_ID",
+  "type": 1,
+  "key": "sk-PROJ-REPLACE_ME",
+  "base_url": "",
+  "other": "",
+
+  "models": "gpt-4o,gpt-4o-mini,gpt-4-turbo,gpt-4,gpt-3.5-turbo,o1-preview,o1-mini,text-embedding-3-small,text-embedding-3-large,whisper-1,tts-1,dall-e-3",
+
+  "group": "official",
+  "priority": 200,
+  "weight": 50,
+  "status": 1,
+
+  "model_mapping": "{}",
+  "auto_ban": 1,
+  "test_model": "gpt-4o-mini",
+
+  "_comment_ratelimit": "如果是低额度账号，建议设置渠道级限流（管理后台编辑里的 RPM/TPM）"
+}

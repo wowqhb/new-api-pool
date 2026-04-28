@@ -80,6 +80,13 @@ import {
   Package,
   Server,
   CalendarClock,
+  Database,
+  Activity,
+  Users,
+  Bot,
+  Shield,
+  Wallet,
+  Bell,
 } from 'lucide-react';
 import {
   SiAtlassian,
@@ -152,6 +159,20 @@ export function getLucideIcon(key, selected = false) {
       return <CalendarClock {...commonProps} color={iconColor} />;
     case 'setting':
       return <Settings {...commonProps} color={iconColor} />;
+    case 'pool':
+      return <Database {...commonProps} color={iconColor} />;
+    case 'pool-overview':
+      return <Activity {...commonProps} color={iconColor} />;
+    case 'pool-accounts':
+      return <Users {...commonProps} color={iconColor} />;
+    case 'pool-recipes':
+      return <Bot {...commonProps} color={iconColor} />;
+    case 'pool-risk':
+      return <Shield {...commonProps} color={iconColor} />;
+    case 'pool-billing':
+      return <Wallet {...commonProps} color={iconColor} />;
+    case 'pool-alerts':
+      return <Bell {...commonProps} color={iconColor} />;
     default:
       return <CircleUser {...commonProps} color={iconColor} />;
   }

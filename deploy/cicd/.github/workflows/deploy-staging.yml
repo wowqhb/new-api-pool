@@ -1,0 +1,100 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/new-api
+          tags: |
+            type=sha,prefix=staging-
+            type=raw,value=staging-latest
+
+      - name: Build & Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Sign image
+        run: |
+          echo "${{ secrets.COSIGN_KEY }}" > /tmp/cosign.key
+          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' ' '); do
+              cosign sign --yes --key /tmp/cosign.key "$tag"
+          done
+        if: ${{ env.COSIGN_ENABLED == 'true' }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run Ansible Deploy
+        run: |
+          pip install ansible
+          cd deploy/cicd/ansible
+          ansible-playbook -i inventories/staging.yml playbooks/deploy.yml \
+              -e "image_tag=${{ needs.build-and-push.outputs.image }}"
+
+      - name: Smoke Test
+        env:
+          TEST_BASE_URL: https://api-staging.example.com
+          TEST_API_KEY: ${{ secrets.STAGING_TEST_KEY }}
+        run: bash deploy/testing/smoke/run.sh
+
+  regression:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Regression
+        env:
+          TEST_BASE_URL: https://api-staging.example.com
+          TEST_API_KEY: ${{ secrets.STAGING_TEST_KEY }}
+          ADMIN_TOKEN: ${{ secrets.STAGING_ADMIN_TOKEN }}
+        run: bash deploy/testing/regression/run.sh
+        timeout-minutes: 15
+
+      - name: Notify Telegram
+        if: always()
+        run: |
+          status="${{ job.status }}"
+          curl -fsS "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d "text=Staging deploy ${status}: ${{ github.sha }}"

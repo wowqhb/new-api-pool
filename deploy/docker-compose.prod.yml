@@ -1,0 +1,207 @@
+# New API 生产级编排
+# 使用方式：
+#   1. cp .env.example .env && bash scripts/gen-secrets.sh   # 生成所有密钥
+#   2. 编辑 .env 配置域名和管理员 IP 白名单
+#   3. docker compose -f docker-compose.prod.yml up -d
+#
+# 关键设计：
+# - new-api 跑 2 个实例做高可用（共享 PG+Redis，无状态）
+# - PG/Redis 不暴露公网端口，只走内网
+# - Caddy 作为唯一对外入口，自动签发 HTTPS（前置可再加 Cloudflare）
+# - 所有服务带 healthcheck + 资源限制 + 日志大小限制（防爆盘）
+
+name: new-api-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+# 共用环境变量（不含节点角色相关，避免锚点循环引用）
+x-newapi-env: &newapi-env
+  SQL_DSN: postgresql://${PG_USER}:${PG_PASSWORD}@postgres:5432/${PG_DB}
+  LOG_SQL_DSN: postgresql://${PG_USER}:${PG_PASSWORD}@postgres:5432/${PG_LOG_DB}
+  REDIS_CONN_STRING: redis://:${REDIS_PASSWORD}@redis:6379
+  SESSION_SECRET: ${SESSION_SECRET}
+  CRYPTO_SECRET: ${CRYPTO_SECRET}
+  SYNC_FREQUENCY: 60
+  BATCH_UPDATE_ENABLED: "true"
+  BATCH_UPDATE_INTERVAL: 5
+  MEMORY_CACHE_ENABLED: "true"
+  CHANNEL_UPDATE_FREQUENCY: 60
+  STREAMING_TIMEOUT: 300
+  RELAY_TIMEOUT: 600
+  ERROR_LOG_ENABLED: "true"
+  TZ: Asia/Shanghai
+
+# 共用服务定义（不含 environment / container_name 等差异项）
+x-newapi-base: &newapi-base
+  image: calciumion/new-api:${NEW_API_VERSION:-latest}
+  restart: always
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    - ./data:/data
+    - ./logs:/app/logs
+  networks:
+    - internal
+  logging: *default-logging
+  healthcheck:
+    test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -q '\"success\":\\s*true' || exit 1"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 30s
+  deploy:
+    resources:
+      limits:
+        cpus: "2.0"
+        memory: 2G
+
+services:
+  # ───────────── 数据库 ─────────────
+  postgres:
+    image: postgres:16
+    container_name: new-api-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DB}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: Asia/Shanghai
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./backups:/backups
+    networks:
+      - internal
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "effective_cache_size=1536MB"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "log_min_duration_statement=1000"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  # ───────────── 缓存 ─────────────
+  redis:
+    image: redis:7-alpine
+    container_name: new-api-redis
+    restart: always
+    command:
+      - "redis-server"
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+      - "--maxmemory"
+      - "1gb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--appendonly"
+      - "yes"
+      - "--appendfsync"
+      - "everysec"
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  # ───────────── new-api 实例 1（master）─────────────
+  new-api-1:
+    <<: *newapi-base
+    container_name: new-api-1
+    environment:
+      <<: *newapi-env
+      NODE_TYPE: master
+      NODE_NAME: new-api-master
+
+  # ───────────── new-api 实例 2（slave）─────────────
+  new-api-2:
+    <<: *newapi-base
+    container_name: new-api-2
+    environment:
+      <<: *newapi-env
+      NODE_TYPE: slave
+      NODE_NAME: new-api-slave-1
+
+  # ───────────── 反代 / TLS ─────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: new-api-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./logs/caddy:/var/log/caddy
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      ADMIN_ALLOW_CIDR: ${ADMIN_ALLOW_CIDR:-0.0.0.0/0}
+      ACME_EMAIL: ${ACME_EMAIL}
+    networks:
+      - internal
+      - public
+    depends_on:
+      new-api-1:
+        condition: service_healthy
+      new-api-2:
+        condition: service_healthy
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+volumes:
+  pg_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  # 内网：只有这些服务互通，PG/Redis 永不暴露
+  internal:
+    driver: bridge
+    internal: false  # 容器内仍需出网拉镜像/上游 API
+  # 公网：仅 Caddy 暴露 80/443
+  public:
+    driver: bridge

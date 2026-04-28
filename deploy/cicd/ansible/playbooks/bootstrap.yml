@@ -1,0 +1,118 @@
+# 新机初始化：从空白 VPS 到可用网关
+# 用法：ansible-playbook -i inventories/production.yml playbooks/bootstrap.yml --limit gw-5
+
+- name: Bootstrap a fresh server
+  hosts: all
+  become: yes
+  vars:
+    timezone: "Asia/Shanghai"
+    deploy_user: deploy
+    ssh_port: 22022
+
+  tasks:
+    - name: Update apt
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install base packages
+      apt:
+        name:
+          - curl
+          - vim
+          - htop
+          - jq
+          - ca-certificates
+          - gnupg
+          - ufw
+          - fail2ban
+          - chrony
+          - logrotate
+          - unzip
+        state: present
+
+    - name: Set timezone
+      timezone:
+        name: "{{ timezone }}"
+
+    - name: Create deploy user
+      user:
+        name: "{{ deploy_user }}"
+        groups: sudo,docker
+        append: yes
+        shell: /bin/bash
+        password_lock: yes
+
+    - name: Authorize deploy key
+      authorized_key:
+        user: "{{ deploy_user }}"
+        key: "{{ lookup('file', '../files/deploy.pub') }}"
+
+    - name: Disable SSH password auth
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PasswordAuthentication"
+        line: "PasswordAuthentication no"
+      notify: restart ssh
+
+    - name: Change SSH port
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?Port "
+        line: "Port {{ ssh_port }}"
+      notify: restart ssh
+
+    - name: Configure firewall
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "{{ ssh_port }}"
+        - 80
+        - 443
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Configure fail2ban for SSH
+      copy:
+        dest: /etc/fail2ban/jail.d/sshd.local
+        content: |
+          [sshd]
+          enabled = true
+          port = {{ ssh_port }}
+          maxretry = 3
+          bantime = 3600
+
+    - name: Install Docker
+      shell: |
+        curl -fsSL https://get.docker.com | sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Add deploy user to docker group
+      user:
+        name: "{{ deploy_user }}"
+        groups: docker
+        append: yes
+
+    - name: Install node_exporter
+      get_url:
+        url: https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.linux-amd64.tar.gz
+        dest: /tmp/node_exporter.tar.gz
+
+    - name: Install promtail (Loki agent)
+      shell: |
+        curl -fsSL https://github.com/grafana/loki/releases/download/v3.0.0/promtail-linux-amd64.zip -o /tmp/promtail.zip
+        unzip -o /tmp/promtail.zip -d /usr/local/bin/
+      args:
+        creates: /usr/local/bin/promtail-linux-amd64
+
+  handlers:
+    - name: restart ssh
+      service:
+        name: ssh
+        state: restarted

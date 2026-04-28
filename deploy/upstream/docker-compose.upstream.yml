@@ -1,0 +1,116 @@
+services:
+  upstream-postgres:
+    image: postgres:16
+    container_name: upstream-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${UPSTREAM_PG_USER}
+      POSTGRES_PASSWORD: ${UPSTREAM_PG_PASSWORD}
+      POSTGRES_DB: ${UPSTREAM_PG_DB}
+    volumes:
+      - upstream_pg:/var/lib/postgresql/data
+    networks: [upstream-net]
+    ports: ["127.0.0.1:5544:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${UPSTREAM_PG_USER}"]
+      interval: 10s
+
+  upstream-redis:
+    image: redis:7-alpine
+    container_name: upstream-redis
+    restart: always
+    command: >
+      redis-server --requirepass ${UPSTREAM_REDIS_PASSWORD}
+        --appendonly yes --maxmemory 1gb --maxmemory-policy noeviction
+    volumes:
+      - upstream_redis:/data
+    networks: [upstream-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${UPSTREAM_REDIS_PASSWORD}", "PING"]
+      interval: 10s
+
+  upstream-minio:
+    image: minio/minio:RELEASE.2024-12-13T22-19-12Z
+    container_name: upstream-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - upstream_minio:/data
+    networks: [upstream-net]
+    ports:
+      - "127.0.0.1:9100:9000"
+      - "127.0.0.1:9101:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+
+  upstream-orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    container_name: upstream-orchestrator
+    restart: always
+    depends_on:
+      upstream-postgres:
+        condition: service_healthy
+      upstream-redis:
+        condition: service_healthy
+      upstream-minio:
+        condition: service_healthy
+    env_file: .env.upstream
+    environment:
+      ROLE: orchestrator
+      PG_DSN: postgresql://${UPSTREAM_PG_USER}:${UPSTREAM_PG_PASSWORD}@upstream-postgres:5432/${UPSTREAM_PG_DB}
+      REDIS_URL: redis://:${UPSTREAM_REDIS_PASSWORD}@upstream-redis:6379
+      MINIO_ENDPOINT: upstream-minio:9000
+    networks: [upstream-net]
+
+  upstream-worker-1:
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    container_name: upstream-worker-1
+    restart: always
+    depends_on:
+      upstream-orchestrator:
+        condition: service_started
+    env_file: .env.upstream
+    environment:
+      ROLE: worker
+      WORKER_ID: w1
+      PG_DSN: postgresql://${UPSTREAM_PG_USER}:${UPSTREAM_PG_PASSWORD}@upstream-postgres:5432/${UPSTREAM_PG_DB}
+      REDIS_URL: redis://:${UPSTREAM_REDIS_PASSWORD}@upstream-redis:6379
+      MINIO_ENDPOINT: upstream-minio:9000
+      DISPLAY: ":99"
+    shm_size: 2g
+    cap_add:
+      - SYS_ADMIN
+    networks: [upstream-net]
+
+  upstream-worker-2:
+    extends:
+      service: upstream-worker-1
+    container_name: upstream-worker-2
+    environment:
+      ROLE: worker
+      WORKER_ID: w2
+
+  upstream-worker-3:
+    extends:
+      service: upstream-worker-1
+    container_name: upstream-worker-3
+    environment:
+      ROLE: worker
+      WORKER_ID: w3
+
+networks:
+  upstream-net:
+    name: upstream-net
+
+volumes:
+  upstream_pg: {}
+  upstream_redis: {}
+  upstream_minio: {}

@@ -1,0 +1,20 @@
+{
+  "_comment_type": "type=14 是 Anthropic 官方",
+  "_comment_key": "sk-ant-... 直接填",
+
+  "name": "Anthropic Official #FILL_ID",
+  "type": 14,
+  "key": "sk-ant-api03-REPLACE_ME",
+  "base_url": "",
+
+  "models": "claude-opus-4-20250514,claude-sonnet-4-20250514,claude-haiku-4-20250514,claude-3-5-sonnet-20241022,claude-3-5-haiku-20241022",
+
+  "group": "official",
+  "priority": 200,
+  "weight": 50,
+  "status": 1,
+
+  "model_mapping": "{}",
+  "auto_ban": 1,
+  "test_model": "claude-3-5-haiku-20241022"
+}

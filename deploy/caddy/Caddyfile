@@ -1,0 +1,114 @@
+# Caddy 配置：API 域 + 管理域 双站点
+# 自动签发 Let's Encrypt 证书（80/443 必须能从公网到达）
+# 如果前置 Cloudflare，建议关闭 Cloudflare 的代理改用"仅 DNS"模式
+# 或在 Cloudflare SSL 设置选 Full(Strict)，让 Caddy 仍能签证书
+
+{
+	email {$ACME_EMAIL}
+	# 强制 TLS 1.2+
+	servers {
+		protocols h1 h2 h3
+	}
+	# 默认日志格式：JSON，方便 Loki 解析
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+}
+
+# ═══════════════════════════════════════════════
+# API 域名：付费用户调用 → 负载均衡到 new-api-1/-2
+# ═══════════════════════════════════════════════
+{$API_DOMAIN} {
+	encode gzip zstd
+
+	# 安全响应头
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		# 不暴露 Server 头
+		-Server
+	}
+
+	# 反代到两个 new-api 实例，least_conn + 健康检查
+	reverse_proxy new-api-1:3000 new-api-2:3000 {
+		lb_policy least_conn
+		lb_try_duration 5s
+		lb_try_interval 200ms
+
+		health_uri /api/status
+		health_interval 15s
+		health_timeout 5s
+		health_status 2xx
+
+		# 流式 SSE 不要缓冲
+		flush_interval -1
+
+		# 超时（注意要大于 STREAMING_TIMEOUT）
+		transport http {
+			read_timeout 600s
+			write_timeout 600s
+			dial_timeout 10s
+		}
+
+		# 透传真实 IP（如果前置 Cloudflare 还要再加 trusted_proxies）
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	# 访问日志
+	log {
+		output file /var/log/caddy/api.log {
+			roll_size 100mb
+			roll_keep 7
+			roll_keep_for 720h
+		}
+		format json
+	}
+}
+
+# ═══════════════════════════════════════════════
+# 管理后台：仅白名单 CIDR + 限速 + 单独日志
+# ═══════════════════════════════════════════════
+{$ADMIN_DOMAIN} {
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		# 管理后台严禁被搜索引擎索引
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	# IP 白名单：只有 ADMIN_ALLOW_CIDR 列出的 IP 才能访问
+	# 0.0.0.0/0 即不限制（生产强烈建议改成你自己的 IP）
+	@admin_allowed remote_ip {$ADMIN_ALLOW_CIDR}
+	handle @admin_allowed {
+		reverse_proxy new-api-1:3000 new-api-2:3000 {
+			lb_policy first
+			health_uri /api/status
+			health_interval 15s
+			flush_interval -1
+
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	handle {
+		respond "Forbidden" 403
+	}
+
+	log {
+		output file /var/log/caddy/admin.log {
+			roll_size 50mb
+			roll_keep 14
+			roll_keep_for 2160h
+		}
+		format json
+	}
+}

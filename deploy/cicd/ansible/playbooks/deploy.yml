@@ -1,0 +1,85 @@
+# 部署 new-api 到所有网关
+# 用法：ansible-playbook -i inventories/production.yml playbooks/deploy.yml -e image_tag=ghcr.io/...
+
+- name: Deploy new-api to all gateways
+  hosts: gateways
+  serial: 1   # 滚动部署：一次一台，避免全部同时重启
+  become: yes
+  vars:
+    image_tag: "{{ image_tag | default('ghcr.io/yourorg/new-api:latest') }}"
+    compose_dir: /opt/new-api
+    healthcheck_url: "http://localhost:3000/api/status"
+
+  tasks:
+    - name: Ensure compose dir exists
+      file:
+        path: "{{ compose_dir }}"
+        state: directory
+        owner: deploy
+        mode: 0755
+
+    - name: Render docker-compose.yml from template
+      template:
+        src: ../templates/docker-compose.yml.j2
+        dest: "{{ compose_dir }}/docker-compose.yml"
+        owner: deploy
+        mode: 0644
+
+    - name: Pre-pull image (减少切换抖动)
+      shell: |
+        docker pull {{ image_tag }}
+
+    - name: Drain instance from LB (摘流)
+      uri:
+        url: "https://lb.example.com/admin/drain/{{ inventory_hostname }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ lb_admin_token }}"
+      delegate_to: localhost
+      ignore_errors: yes
+
+    - name: Wait for in-flight requests to complete
+      pause:
+        seconds: 10
+
+    - name: Stop old container
+      shell: |
+        cd {{ compose_dir }} && docker compose stop new-api
+      ignore_errors: yes
+
+    - name: Start new container
+      shell: |
+        cd {{ compose_dir }} && docker compose up -d new-api
+
+    - name: Wait for healthy
+      uri:
+        url: "{{ healthcheck_url }}"
+        status_code: 200
+      retries: 30
+      delay: 2
+      register: hc
+      until: hc.status == 200
+
+    - name: Re-attach to LB
+      uri:
+        url: "https://lb.example.com/admin/enable/{{ inventory_hostname }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ lb_admin_token }}"
+      delegate_to: localhost
+
+    - name: Save current image_tag (用于回滚)
+      copy:
+        content: "{{ image_tag }}"
+        dest: "{{ compose_dir }}/CURRENT_TAG"
+
+  post_tasks:
+    - name: Notify Telegram
+      uri:
+        url: "https://api.telegram.org/bot{{ telegram_bot_token }}/sendMessage"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          chat_id: "{{ telegram_chat_id }}"
+          text: "✅ 部署完成 {{ inventory_hostname }} → {{ image_tag }}"
+      delegate_to: localhost

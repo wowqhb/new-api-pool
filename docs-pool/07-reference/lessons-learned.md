@@ -1,0 +1,770 @@
+# 踩坑大全（开发实录）
+
+> 这是这个 fork 从 v0.1 到 v0.5 真实趟过的坑、用脑子撞出的解法。
+> 跟 [troubleshooting.md](../06-operations/troubleshooting.md) 的区别：
+> 那篇按"现象"写给运维查；本篇按"开发顺序"写给写代码的人避雷。
+
+---
+
+## 索引
+
+- [A. 路由 / 渠道相关（伤害最大的几个）](#a-路由--渠道相关伤害最大的几个)
+- [B. GORM / SQLite 数据层](#b-gorm--sqlite-数据层)
+- [C. 自动化注册（chromedp / 反爬）](#c-自动化注册chromedp--反爬)
+- [D. UI / Semi Design / 前端](#d-ui--semi-design--前端)
+- [E. 编译 / embed / 二进制](#e-编译--embed--二进制)
+- [F. Telegram / 第三方 API](#f-telegram--第三方-api)
+- [G. 流程 / 协作 / 文档](#g-流程--协作--文档)
+
+---
+
+## A. 路由 / 渠道相关（伤害最大的几个）
+
+### A1. 自动建出来的 channel 路由不到 — `No available channel for model X under group default`
+
+**伤害指数**：⭐⭐⭐⭐⭐（彻底骗自己 + 排查 4 小时）
+
+#### 现象
+后台「渠道管理」里看到 channel 是绿的、`status=1`；调 `/v1/chat/completions` 必报 `No available channel`。
+
+#### 假设链路
+1. group 不对？查 → 是 `default,gemini`，✅
+2. status 不对？查 → 是 1，✅
+3. models 没填？查 → 已经填了，✅
+4. 是不是 `abilities` 表没数据？查 → **0 行**
+
+#### 真根因
+建 channel 时用了 `model.DB.Create(ch)`，**完全跳过** `Channel.Insert()` 里的 `AddAbilities()`。
+
+```go
+// ❌ 错的
+model.DB.Create(ch)
+// ✅ 对的
+ch.Insert()                              // 内部会走 AddAbilities()
+```
+
+`AddAbilities()` 把 `channel.Group` × `channel.Models` 笛卡尔积写到 `abilities` 表，**这才是路由**。
+
+#### 修复
+搜全代码：
+```bash
+rg 'DB\.Create\(ch\)|DB\.Create\(&ch\)' new-api-src/
+```
+全部替换为 `ch.Insert()`（涉及 `controller/pool.go::AddPoolAccount` `ManualSubmitJobResult` `BindPoolAccountChannel` + `service/pool_worker.go::runJob`）。
+
+#### 预防
+- 在 [`coding-standards.md`](../02-development/coding-standards.md) 写死规则
+- 在 [`decisions.md`](../05-architecture/decisions.md#adr-0005channel-写入必须用-chinsert不允许-dbcreatech) 写 ADR-0005
+- code review 时 `rg` 一遍这个模式
+
+---
+
+### A2. `channel.Group = "gemini"`，default 用户没法用
+
+**伤害指数**：⭐⭐⭐⭐
+
+#### 现象
+跟 A1 长得一模一样，`No available channel for model X under group default`。
+
+#### 真根因
+最初实现 `controller/pool.go::AddPoolAccount` 写：
+```go
+ch.Group = recipe.Provider     // "gemini"
+```
+
+而用户 token 默认 `users.group = 'default'` → `abilities WHERE group='default' AND model='gemini-2.5-flash'` → 0 行。
+
+#### 修复
+group 写双值：
+```go
+chGroup := "default"
+if groupName != "" && groupName != "default" {
+    chGroup = "default," + groupName
+}
+ch.Group = chGroup
+```
+
+`AddAbilities` 内部 `strings.Split(ch.Group, ",")` 会写两份记录（`default` 一份 + `gemini` 一份），两类用户都命中。
+
+#### 预防
+- ADR-0006 立规矩
+- 测试用例：建一个 channel 后查 `abilities` 表是否有 `default` 行
+
+---
+
+### A3. `channel.Models = ""` 导致 `AddAbilities` 啥都没写
+
+**伤害指数**：⭐⭐⭐
+
+#### 现象
+`abilities` 表有几行 `default,xxx` 但每个 channel 只有 1-2 条 model。
+
+#### 真根因
+建 channel 时 `models` 留空，等待用户进「渠道管理」点「获取模型列表」补全。但用户根本不知道要补全。
+
+#### 修复
+- 给 `PoolRecipe` 加 `DefaultModels` 字段（text, 逗号分隔）
+- Seed 19 条 Recipe 全部填好（OpenAI 写 30+ 模型，Gemini 写 8 个，DeepSeek 写 2 个等）
+- 自动建 channel 时 `ch.Models = recipe.DefaultModels`
+
+#### 副作用
+DefaultModels 写满 ≠ 该 Key 实际有权限的模型。但路由不到比 401 更糟。
+
+---
+
+### A4. `channels.tag` 是 `*string` 不是 `string`
+
+**伤害指数**：⭐⭐
+
+#### 现象
+```go
+ch := &model.Channel{
+    Tag: "pool-auto",            // ❌ 编译报错：cannot use string as *string
+}
+```
+
+#### 修复
+```go
+poolTag := "pool-auto"
+ch.Tag = &poolTag
+```
+
+#### 预防
+看 model/channel.go 字段类型 → 知道有些指针字段是为了"区分 NULL vs 空字符串"。
+
+---
+
+## B. GORM / SQLite 数据层
+
+### B1. GORM `default:true` bool 陷阱（导致 ManualMode 全部=true）
+
+**伤害指数**：⭐⭐⭐⭐⭐（最阴险）
+
+#### 现象
+Seed 文件写：
+```go
+{Key: "deepseek-direct", ManualMode: true},
+{Key: "openai-runner",   ManualMode: false},  // 想让它走自动 runner
+```
+启动后查 db → **全是 `manual_mode=1`**。
+
+#### 真根因
+PoolRecipe 字段：
+```go
+ManualMode bool `gorm:"default:true"`
+```
+GORM 上送 `Create()` 时，`ManualMode=false` 是 zero-value，**触发 default 规则被覆盖成 true**。
+
+`Save()` 也一样，因为 GORM 不知道你"是真的想存 false"还是"留空"。
+
+#### 修复
+1. 字段去掉 `gorm:"default:true"`
+2. Seed 显式写 `ManualMode: true/false`，不依赖 default
+3. 一次性迁移 SQL 修正旧数据：
+   ```sql
+   UPDATE pool_recipes SET manual_mode=1
+   WHERE manual_mode=0 AND (webhook_url IS NULL OR webhook_url='');
+   ```
+
+#### 预防（[ADR-0009](../05-architecture/decisions.md#adr-0009seed-函数加非空-fallback-保护避免-gorm-默认值陷阱)）
+- 任何 `bool` 字段**都不要**写 `gorm:"default:..."`
+- 任何 `int` 字段写 `gorm:"default:0"` 也要小心 zero-value
+- Seed 都用结构体字面量显式赋值，不靠 default
+
+---
+
+### B2. SQLite `group` / `order` / `key` 关键字必须反引号
+
+**伤害指数**：⭐⭐
+
+#### 现象
+```sql
+SELECT group FROM tokens;
+-- Error: in prepare, no such column: group_
+```
+
+报"no such column" 把人误导得以为字段不存在。
+
+#### 修复
+```sql
+SELECT `group` FROM tokens;
+SELECT `key`, value FROM options;
+```
+
+GORM ORM 写法没事（自动加引号），手写 SQL / `model.DB.Raw(...)` 必须自己加。
+
+#### 预防
+排查脚本里的 SQL 第一时间检查关键字。
+
+---
+
+### B3. 项目同时存在 `one-api.db` 和 `new-api.db`
+
+**伤害指数**：⭐⭐⭐⭐
+
+#### 现象
+purge mock 数据：
+```bash
+sqlite3 new-api.db "DELETE FROM pool_jobs WHERE recipe_key='debug-mock';"
+# 0 rows affected
+```
+重启服务 mock 数据还在。
+
+#### 真根因
+项目目录同时有两个 db 文件（早期改名残留）：
+- `one-api.db` ← 实际运行的
+- `new-api.db` ← 误命名 / 历史残留
+
+服务启动时按代码里的 `DB_PATH` 默认 `one-api.db`。
+
+#### 修复
+- `file *.db` 看 sqlite 头确认是 sqlite db
+- `lsof -p $(pgrep new-api-macos) | grep -i sqlite` 看进程实际打开哪个
+- 删冗余文件，只留 `one-api.db`
+
+#### 预防
+- 部署文档明确标注唯一 db 路径
+- 备份脚本只对 `one-api.db` 操作
+
+---
+
+### B4. SQLite WAL 模式备份要拷三个文件
+
+**伤害指数**：⭐⭐
+
+#### 现象
+拷了 `one-api.db`，恢复后发现少了几小时数据。
+
+#### 真根因
+SQLite WAL 模式下，未 checkpoint 的写入在 `*.db-wal` 里，shared memory 在 `*.db-shm`。**只拷主 db = 拿了快照不一致的状态**。
+
+#### 修复
+- 冷备份：先停服，再 `cp one-api.db one-api.db-wal one-api.db-shm`
+- 热备份：用 `sqlite3 one-api.db ".backup 'backup.db'"`（自动处理一致性）
+
+详见 [`backup-restore.md`](../06-operations/backup-restore.md)。
+
+---
+
+### B5. `DELETE FROM pool_recipes` 后启动时表为空？
+
+**伤害指数**：⭐⭐
+
+#### 现象
+本地测试时 `DELETE FROM pool_recipes;`，然后重启 → 表里没有数据。
+但是预期 `SeedDefaultPoolRecipes()` 应该重新插入。
+
+#### 真根因
+`SeedDefaultPoolRecipes()` 只在表为空时插入新条目，但**单条记录的更新逻辑**是 `upsertPoolRecipe(existing, seed)`——如果 db 里**已有**一条同 key 的，不会强制重置。
+但如果整个表空，分支走的是 INSERT 全部。
+
+如果你 `DELETE` 了一部分，`SeedDefault` **不会回填那部分**。
+
+#### 修复
+启动时迁移逻辑加：
+```go
+for _, seed := range defaults {
+    var existing PoolRecipe
+    err := DB.Where("`key` = ?", seed.Key).First(&existing).Error
+    if errors.Is(err, gorm.ErrRecordNotFound) {
+        DB.Create(&seed)            // 缺哪条补哪条
+    } else {
+        upsertPoolRecipe(&existing, &seed)
+    }
+}
+```
+
+#### 预防
+不要靠"DELETE → 重启自愈"。要重置就 `DELETE` 后手动 INSERT，或写专门的 reset 脚本。
+
+---
+
+## C. 自动化注册（chromedp / 反爬）
+
+### C1. chromedp 的 `isTrusted=false` 一击致命
+
+**伤害指数**：⭐⭐⭐⭐⭐（直接毙了 7 个 Runner）
+
+#### 现象
+跑 OpenRouter Runner，能进 sign-up 页，能填 email + password，点 Continue → 卡在 Cloudflare Turnstile checkbox 几分钟 → timeout。
+
+#### 真根因
+Cloudflare Turnstile 检查 `event.isTrusted`：
+- 真人鼠标点击 = `true`
+- chromedp `chromedp.Click(...)` = `false`
+
+被发现 = 不允许通过。
+
+#### 尝试过的工具
+- `chromedp.MouseClick` 按坐标 → 仍 isTrusted=false
+- 注 fake `Object.defineProperty(MouseEvent.prototype, 'isTrusted', {get: () => true})` → CF 能识别注入
+- residential proxy + headed 模式 → 通过率仍 < 30%
+- undetected_chromedriver / puppeteer-extra-plugin-stealth → 略好但不稳定
+
+#### 修复
+**放弃**。删除所有商业站点的 chromedp Runner（[ADR-0002](../05-architecture/decisions.md#adr-0002删除所有-chromedp-自动-runner)）。
+
+保留 RecipeRunner 接口（万一以后接打码服务再说）。
+所有 19 条内置 Recipe 改 `ManualMode=true`。
+
+#### 教训
+- **诚实优于显得能干**：跑得了 30% 不如直接告诉用户"半自动 3 分钟"
+- 反爬是个无底洞，业务侧没人会因为这个给你预算
+
+---
+
+### C2. Google reCAPTCHA + 中国 IP = 必死
+
+**伤害指数**：⭐⭐⭐⭐
+
+#### 现象
+Cerebras 注册（曾经能跑）：
+1. 浏览器自动化 ✅ 邮件验证 ✅ 设置密码 ✅ 进 onboarding
+2. 选 Free plan → "This organization does not exist"
+3. console 里 `recaptcha__zh_cn.js` + `Failed to fetch`
+
+#### 真根因
+Cerebras 注册流第二步触发 reCAPTCHA v3 → 客户端从 `gstatic.com` 取脚本 → **国内被墙** → reCAPTCHA timeout → 后端拒建 organization。
+
+注册账号其实**已建**，但卡在 organization 关联那步。
+
+#### 修复
+- 用境外住宅代理 / V2Ray：解决得了，但成本高
+- 走 OAuth 而不是邮箱注册：reCAPTCHA 不在 OAuth 流程里
+- 改 Recipe 标记 `ManualMode=true` 让用户自己用 VPN 注册
+
+#### 教训
+即使浏览器能自动化，**网络层**也可能挡你（reCAPTCHA / hCaptcha 都依赖外部 CDN）。
+
+---
+
+### C3. hCaptcha 视觉拼图比 Turnstile 更严
+
+**伤害指数**：⭐⭐⭐⭐
+
+#### 现象
+HuggingFace 注册卡在"找出不一样的图片"拼图。点击 iframe 没响应。
+
+#### 真根因
+hCaptcha iframe 是跨域 + 加密通信，外部脚本根本无法 DOM 操作里面的图片。
+即使能截图传给打码服务，回传坐标点击仍被 isTrusted 检测干掉。
+
+#### 修复
+放弃。同 C1。
+
+---
+
+### C4. mail.tm 免费邮箱被部分服务拉黑
+
+**伤害指数**：⭐⭐⭐
+
+#### 现象
+用 mail.tm 临时邮箱注册 → 提交时被拒"This email address is not allowed"。
+
+#### 真根因
+OpenAI / Anthropic / Cerebras 都维护 disposable email 黑名单（mail.tm / temp-mail / guerrillamail 全在内）。
+
+#### 修复
+- 用真实邮箱（gmail + 别名 `you+xxx@gmail.com`）
+- 用付费一次性邮箱服务（domain 没在黑名单里）
+- 标记这些 Recipe 为 `ManualMode + RequiredMaterials="真实邮箱（不要用 tempmail）"`
+
+---
+
+### C5. 5sim 短信服务有"按国家产品定价"
+
+**伤害指数**：⭐⭐
+
+#### 现象
+账号有 30 RUB（约 $0.4），尝试 OpenAI 短信验证 → "Insufficient funds"。
+
+#### 真根因
+OpenAI 用美国号码（USA），单价 ~30 RUB。但**俄罗斯本地号** 5 RUB。系统不会自动选最便宜的。
+
+#### 修复
+- `service/pool_sms_provider.go::fivesimProvider` 加 `PriceLimit` 参数
+- API 选号要传 `country=any` + `maxPrice` 让 5sim 路由
+- 文档注明充值至少 100 RUB 起步（保证够买美区号几次）
+
+---
+
+## D. UI / Semi Design / 前端
+
+### D1. 编辑 Modal 打开是空的
+
+**伤害指数**：⭐⭐⭐⭐（直接被老板骂）
+
+#### 现象
+点「编辑」 → Modal 弹出 → 表单字段全空。
+
+#### 真根因
+`<Form initValues={editing}>` 的 `initValues` **只在 Form mount 时读一次**。第一次打开 Modal mount 完，第二次打开 Modal 已经在 mount 状态，`initValues` 不会重新读取。
+
+#### 修复
+三连：
+```jsx
+<Modal destroyOnClose visible={open} ...>
+  <Form
+    key={editing?.id}              // ① 不同 id → 重新 mount
+    initValues={editing}
+  />
+</Modal>
+```
+
+加 `destroyOnClose` 也起作用（Modal 关掉时整体卸载）。
+
+`key={editing?.id}` 是更稳的"强制重渲染"信号。
+
+#### 预防
+- 在 [`coding-standards.md`](../02-development/coding-standards.md) 立规矩
+- code review 看到 `<Form initValues>` 必有这个 key
+
+---
+
+### D2. `IllustrationNoContent` 不存在
+
+**伤害指数**：⭐
+
+#### 现象
+```jsx
+import { IllustrationNoContent } from '@douyinfe/semi-illustrations';
+// ❌ Module has no exported member 'IllustrationNoContent'
+```
+
+#### 真根因
+Semi 包 `@douyinfe/semi-illustrations` 只导出特定几个 Illustration（NoResult / NoAccess / Construction），没有 NoContent。
+
+#### 修复
+找近义词：
+```jsx
+import { IllustrationNoResult } from '@douyinfe/semi-illustrations';
+```
+
+#### 预防
+开发前先 `node -e "console.log(Object.keys(require('@douyinfe/semi-illustrations')))"` 看导出清单。
+
+---
+
+### D3. Notification 太密集触发 Semi 警告
+
+**伤害指数**：⭐
+
+#### 现象
+连续点几次按钮 → Console 大量 `Notification with same content already exists`。
+
+#### 修复
+给 notification 一个 ID：
+```jsx
+Notification.error({
+  id: 'pool-bind-error',     // 同 id 会自动去重
+  title: '...',
+  content: '...',
+});
+```
+
+或用 `useRef` 防抖。
+
+---
+
+### D4. Semi Form 的 `Field` 嵌套 `Switch` 不更新
+
+**伤害指数**：⭐⭐
+
+#### 现象
+切换 `<Form.Switch>` → 视图正常变化，但 `formApi.getValues().manual_mode` 还是旧的。
+
+#### 真根因
+Switch 不是受控组件时，要用 `field` props 让 Form 接管。
+
+#### 修复
+```jsx
+<Form.Switch
+  field="manual_mode"        // ✅ Form 接管
+  label="..."
+/>
+```
+
+不要混用 `value/onChange` 和 `field`。
+
+---
+
+## E. 编译 / embed / 二进制
+
+### E1. `go build` 用了缓存的旧 dist
+
+**伤害指数**：⭐⭐⭐
+
+#### 现象
+前端改了文案，编译完跑起来浏览器仍是老版本。
+
+#### 真根因
+Go 编译器看 `//go:embed web/dist` 的源文件没变，**直接用 build cache**——即使 `dist/index.html` 改了。
+
+#### 修复
+强制重编：
+```bash
+cd new-api-src
+touch main.go              # 让 go 觉得源码变了
+go build -a -o ../new-api/new-api-macos
+```
+
+`-a` = 重编所有依赖。
+
+#### 预防
+- 写一个 `build.sh` 标准脚本，里面带 `touch + -a`
+- CI 永远 fresh build
+
+---
+
+### E2. macOS binary 在 Linux `cannot execute binary file`
+
+**伤害指数**：⭐
+
+#### 现象
+SCP `new-api-macos` 到 ubuntu → 跑不起来。
+
+#### 真根因
+macOS arm64 ↔ Linux x64 不兼容，要交叉编译。
+
+#### 修复
+```bash
+GOOS=linux  GOARCH=amd64 go build -o new-api-linux-x64
+GOOS=linux  GOARCH=arm64 go build -o new-api-linux-arm64
+GOOS=darwin GOARCH=arm64 go build -o new-api-macos
+```
+
+#### 预防
+- 命名带架构后缀
+- 部署文档先 `uname -m` 再下二进制
+
+---
+
+### E3. `start.command` 双击没反应
+
+**伤害指数**：⭐⭐
+
+#### 现象
+点了没反应；右键打开 → 弹"无法验证开发者"。
+
+#### 修复
+```bash
+chmod +x start.command new-api-macos
+xattr -d com.apple.quarantine start.command new-api-macos 2>/dev/null
+```
+
+#### 预防
+README / start.command 里写 first-run 说明。
+
+---
+
+### E4. `start.command` 升级时 binary 还在跑
+
+**伤害指数**：⭐⭐
+
+#### 现象
+脚本：
+```bash
+#!/bin/bash
+mv ~/Downloads/new-api-macos new-api-macos
+./new-api-macos
+```
+执行 → "Text file busy"。
+
+#### 真根因
+旧进程还在跑，`mv` 时 macOS 不允许覆盖正在执行的二进制。
+
+#### 修复
+分两步：
+```bash
+pkill -f new-api-macos
+sleep 2
+mv new-api-macos.new new-api-macos
+./new-api-macos
+```
+
+或文件名分版本：`new-api-macos-v0.5.0`，软链 `new-api-macos -> new-api-macos-v0.5.0`。
+
+---
+
+## F. Telegram / 第三方 API
+
+### F1. Telegram `chat not found`
+
+**伤害指数**：⭐⭐
+
+#### 现象
+Bot Token + Chat Id 都填了，发消息返回 400。
+
+#### 真根因
+`chat_id` 用错了：
+- 用了**用户名** `@yourname` → 私聊不一定支持
+- 用了**群组数字** 但 bot 没被加进群
+
+#### 修复
+1. 让 bot 先发一条任意消息到目标位置
+2. 用 `getUpdates` 读真实 chat id：
+   ```bash
+   curl "https://api.telegram.org/bot<TOKEN>/getUpdates" | jq '.result[].message.chat'
+   ```
+3. 把那个数字 id 填到「Telegram 设置」
+
+#### 预防
+`SendTelegramMessage` 解析 API 返回的 `description` 字段（"chat not found" / "bot was blocked by the user"），把人类可读错误回传到前端。
+
+---
+
+### F2. Telegram MarkdownV2 转义
+
+**伤害指数**：⭐
+
+#### 现象
+告警消息里有 `_` 或 `*` → Telegram 不解析或返回 `can't parse entities`。
+
+#### 修复
+```go
+func tgEscape(s string) string {
+    chars := "_*[]()~`>#+-=|{}.!"
+    for _, c := range chars {
+        s = strings.ReplaceAll(s, string(c), "\\"+string(c))
+    }
+    return s
+}
+```
+
+或干脆用 `parse_mode=HTML`，转义 `<`/`>`/`&` 即可。
+
+---
+
+### F3. mail.tm token 30 分钟过期
+
+**伤害指数**：⭐⭐
+
+#### 现象
+长流程跑到一半 → mail.tm API 返回 401。
+
+#### 修复
+拿 token 时一并存 expire ts，每次 API 调用前检查，过期就重新 login。
+
+---
+
+## G. 流程 / 协作 / 文档
+
+### G1. "我后面再补文档" = 永远不补
+
+**伤害指数**：⭐⭐⭐⭐
+
+#### 现象
+v0.2 加了 5 个新接口，commit 写"docs todo"。半年后排查问题，前端写的字段名和后端看到的不一致 → 4 小时往返才查清楚。
+
+#### 修复
+把"改文档"挂到**同一个 commit**：
+```
+git add controller/pool.go docs/07-reference/pool-api.md
+git commit -m "feat(pool): 加 BindPoolAccountChannel + 文档"
+```
+
+写 PR / 合并清单时把"改文档"列死，不勾不让合。
+
+---
+
+### G2. mock 数据混进生产 db
+
+**伤害指数**：⭐⭐⭐
+
+#### 现象
+为了开发 worker 写了 `debug-mock` Recipe + Runner，本地建了 5 条 mock PoolAccount + Channel。后来在生产 db 里发现还在。
+
+#### 真根因
+- `SeedDefaultPoolRecipes()` 把 `debug-mock` 也写进默认了
+- 老板看到一堆名字奇怪的 channel + 价格估算虚高
+
+#### 修复
+- 删 `service/pool_runner_mock.go`
+- 删 `buildDefaultRecipeSeeds()` 里的 `debug-mock` 项
+- 一次性清理 SQL：
+  ```sql
+  DELETE FROM channels WHERE name LIKE 'mock%';
+  DELETE FROM pool_accounts WHERE provider='mock';
+  DELETE FROM pool_recipes WHERE \`key\`='debug-mock';
+  DELETE FROM pool_jobs WHERE recipe_key='debug-mock';
+  DELETE FROM abilities WHERE channel_id IN (...) ;
+  ```
+
+#### 预防
+- 永远不把 `mock` / `test` / `debug` 字样的 Seed 放默认列表
+- 临时数据用专门的 seed 函数 + `if env=="dev"` 包起来
+
+---
+
+### G3. 用 Job ID `2` 而不是 `1` 测试
+
+**伤害指数**：⭐
+
+#### 现象
+准备演示 manual-result：
+```bash
+curl -X POST $BASE/api/pool/jobs/2/manual-result -d '{...}'
+# Error: record not found
+```
+
+#### 真根因
+我创建了 Job 但拿到 `job_id=1`，curl 默写了 2。
+
+#### 修复
+脚本里**必从响应里拿 id**，不要硬编码：
+```bash
+JOB_ID=$(curl -s ... | jq -r '.data.job_id')
+curl -X POST $BASE/api/pool/jobs/$JOB_ID/manual-result ...
+```
+
+---
+
+### G4. 提交时把 `.env` 拖进去
+
+**伤害指数**：⭐⭐⭐⭐⭐（最严重的隐患）
+
+#### 现象（虚惊）
+`git status` 里有 `.env`，差点 `git add .`。
+
+#### 修复
+- `.gitignore` 提前写好：
+  ```
+  .env
+  *.env.local
+  one-api.db*
+  data/logs/
+  backups/
+  ```
+- 装 `git secrets`：`brew install git-secrets && git secrets --install`
+
+#### 预防
+- 项目根放 `.env.example`（不含真值）
+- pre-commit hook 检查含 `sk-` `AIza` `AKIA` 的字符串
+
+---
+
+### G5. 一次改太多东西，回滚都不知道改回哪个
+
+**伤害指数**：⭐⭐⭐
+
+#### 现象
+"加 Recipe + 改路由 + 改 UI + 改 Telegram"塞一个 commit。事后发现 Telegram 部分有 bug，想 revert 单 Telegram 改动 → 整 commit 回滚就把其他全没了。
+
+#### 修复
+- 一个改动 = 一个 commit
+- 改前先 `git status` 看清当前 dirty
+- 改完 `git add -p` 分块加（不是一锅 `git add .`）
+
+---
+
+## 总结：踩坑后形成的 5 条铁律
+
+1. **Channel 入库 → `ch.Insert()`，绝不用 `DB.Create(ch)`**
+2. **bool 字段 → 不写 `gorm:"default:..."`**
+3. **Modal 编辑表单 → `destroyOnClose + key + initValues` 三件套**
+4. **改代码 → 同 commit 改文档**
+5. **不存在的反爬绕过——chromedp 不能赢 Cloudflare/reCAPTCHA/hCaptcha，承认这一点节省 80% 时间**
+
+---
+
+> 下一次踩到新坑，**马上**追加到这里。半年后接手的人会感谢你（很可能就是你自己）。

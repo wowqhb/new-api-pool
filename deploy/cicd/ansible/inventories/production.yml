@@ -1,0 +1,58 @@
+all:
+  vars:
+    ansible_user: deploy
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+    env: production
+    new_api_image: ghcr.io/yourorg/new-api
+    new_api_replicas: 4
+
+  children:
+    gateways:
+      hosts:
+        gw-1:
+          ansible_host: 10.0.10.11
+          weight: 100
+        gw-2:
+          ansible_host: 10.0.10.12
+          weight: 100
+        gw-3:
+          ansible_host: 10.0.10.13
+          weight: 100
+        gw-4:
+          ansible_host: 10.0.10.14
+          weight: 100
+        gw-canary:
+          ansible_host: 10.0.10.15
+          weight: 10  # 灰度
+
+    db_primary:
+      hosts:
+        pg-1:
+          ansible_host: 10.0.20.11
+        pg-2:
+          ansible_host: 10.0.20.12
+        pg-3:
+          ansible_host: 10.0.20.13
+
+    redis:
+      hosts:
+        redis-sentinel-1:
+          ansible_host: 10.0.30.11
+        redis-sentinel-2:
+          ansible_host: 10.0.30.12
+        redis-sentinel-3:
+          ansible_host: 10.0.30.13
+
+    monitoring:
+      hosts:
+        prom:
+          ansible_host: 10.0.40.10
+        grafana:
+          ansible_host: 10.0.40.11
+        loki:
+          ansible_host: 10.0.40.12
+
+    upstream_pipeline:
+      hosts:
+        upstream-1:
+          ansible_host: 10.0.50.10  # 完全独立 VPC

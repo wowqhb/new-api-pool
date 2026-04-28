@@ -1,0 +1,77 @@
+groups:
+  - name: gateway
+    interval: 30s
+    rules:
+      # ───── P0: 网关全挂 ─────
+      - alert: NewApiAllDown
+        expr: up{job="new-api"} == 0
+        for: 1m
+        labels:
+          severity: P0
+          team: ops
+        annotations:
+          summary: "new-api 实例 {{ $labels.instance }} 不可达"
+          description: "实例 {{ $labels.instance }} 已 1 分钟无响应，检查容器状态。"
+
+      - alert: NewApiBothInstancesDown
+        expr: count(up{job="new-api"} == 0) == count(up{job="new-api"})
+        for: 1m
+        labels:
+          severity: P0
+          team: ops
+        annotations:
+          summary: "🔥 全部 new-api 实例都挂了"
+          description: "所有网关实例都不可达，业务完全中断。立刻检查 docker ps + 看日志。"
+
+      # ───── P1: 错误率/延迟 ─────
+      - alert: NewApiHighErrorRate
+        expr: |
+          (
+            sum(rate(newapi_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(newapi_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: P1
+          team: ops
+        annotations:
+          summary: "5xx 错误率 > 5% 持续 5 分钟"
+          description: "当前错误率 {{ $value | humanizePercentage }}，可能是上游全部挂掉或数据库异常。"
+
+      - alert: NewApiHighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(newapi_http_request_duration_seconds_bucket[5m]))
+          ) > 30
+        for: 10m
+        labels:
+          severity: P1
+          team: ops
+        annotations:
+          summary: "网关 p95 延迟 > 30s"
+          description: "当前 p95 = {{ $value }}s。检查上游或自身资源。"
+
+      - alert: NewApiHighInflight
+        expr: newapi_http_requests_in_flight > 200
+        for: 5m
+        labels:
+          severity: P2
+          team: ops
+        annotations:
+          summary: "实例 {{ $labels.instance }} 并发请求 > 200"
+          description: "可能是被刷或上游卡死，检查热门用户/渠道。"
+
+      # ───── P2: TTFT 异常 ─────
+      - alert: NewApiSlowTTFT
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, model) (rate(newapi_llm_first_token_duration_seconds_bucket[10m]))
+          ) > 15
+        for: 15m
+        labels:
+          severity: P2
+          team: ops
+        annotations:
+          summary: "模型 {{ $labels.model }} TTFT p95 > 15s"
+          description: "首 token 延迟过高，影响用户体验。检查上游或路由。"

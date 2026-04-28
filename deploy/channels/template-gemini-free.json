@@ -1,0 +1,31 @@
+{
+  "_comment_type": "Gemini 免费 Key 池：单渠道多 Key 模式（key 字段用换行分隔）",
+  "_comment_strategy": "每个免费 Key RPM=15、RPD=1500（按 Google 当前免费额度）",
+  "_comment_429": "Gemini Free 大量 429 是正常的（额度跑完），不要立即禁用，配置自动启用 5 分钟回扫",
+  "_comment_models": "免费层只能调 flash 系列，不要塞 pro 进去",
+
+  "name": "Gemini Free Pool",
+  "type": 25,
+  "key": "AIzaSyKEY_1\nAIzaSyKEY_2\nAIzaSyKEY_3\nAIzaSyKEY_N",
+  "base_url": "",
+  "multi_key_mode": "random",
+
+  "models": "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash,gemini-1.5-flash",
+
+  "group": "gemini-free",
+  "priority": 100,
+  "weight": 50,
+  "status": 1,
+
+  "model_mapping": "{}",
+  "auto_ban": 1,
+  "test_model": "gemini-2.5-flash-lite",
+
+  "rate_limit": {
+    "rpm": 15,
+    "tpm": 4000000,
+    "rpd": 1500,
+    "_per_key": true,
+    "_comment": "rate_limit 字段需要 new-api 0.10+ 渠道偏好（Channel Affinity）支持，不支持就改用渠道编辑里的限速控件"
+  }
+}

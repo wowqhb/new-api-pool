@@ -1,0 +1,18 @@
+# New API - 简易版（SQLite，单容器，本地测试用）
+# 启动: cd 到本目录，执行 docker compose up -d
+# 访问: http://localhost:3000
+# 默认管理员账号: root  密码: 123456（首次登录后立即修改）
+
+services:
+  new-api:
+    image: calciumion/new-api:latest
+    container_name: new-api
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+      - ./logs:/app/logs
+    environment:
+      - TZ=Asia/Shanghai
+      - ERROR_LOG_ENABLED=true

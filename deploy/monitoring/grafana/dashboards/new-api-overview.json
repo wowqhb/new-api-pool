@@ -1,0 +1,131 @@
+{
+  "title": "New API 总览",
+  "uid": "newapi-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["new-api"],
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": []},
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "QPS（5min 平均）",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum(rate(newapi_http_requests_total[5m]))", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "reqps"}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "5xx 错误率",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum(rate(newapi_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(newapi_http_requests_total[5m]))", "refId": "A"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "green"},
+              {"value": 0.01, "color": "yellow"},
+              {"value": 0.05, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "p95 延迟",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(newapi_http_request_duration_seconds_bucket[5m])))", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "并发请求",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum(newapi_http_requests_in_flight)", "refId": "A"}
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "请求 QPS（按状态码分组）",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum by (status) (rate(newapi_http_requests_total[1m]))", "legendFormat": "{{status}}", "refId": "A"}
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "请求延迟分位（p50/p95/p99）",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum by (le) (rate(newapi_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p50", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(newapi_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, sum by (le) (rate(newapi_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p99", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Token 消耗（按模型分组，input+output）",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum by (model) (rate(newapi_llm_input_token_total[5m]) + rate(newapi_llm_output_token_total[5m]))", "legendFormat": "{{model}}", "refId": "A"}
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "TTFT p95（按模型分组）",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le, model) (rate(newapi_llm_first_token_duration_seconds_bucket[5m])))", "legendFormat": "{{model}}", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 30,
+      "type": "table",
+      "title": "渠道请求量 Top 20",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "topk(20, sum by (channel, model) (rate(newapi_llm_request_total[5m])))", "format": "table", "instant": true, "refId": "A"}
+      ]
+    },
+    {
+      "id": 31,
+      "type": "table",
+      "title": "上游探活状态",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "probe_success{job=\"blackbox_upstream\"}", "format": "table", "instant": true, "refId": "A"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: telegram-default
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity = P0
+      receiver: telegram-p0
+      repeat_interval: 30m
+      continue: true
+    - matchers:
+        - severity =~ "P1|P2"
+      receiver: telegram-default
+      continue: true
+    - matchers:
+        - severity = P3
+      receiver: telegram-default
+      repeat_interval: 24h
+
+receivers:
+  - name: telegram-default
+    telegram_configs:
+      - bot_token: '${TG_BOT_TOKEN}'
+        chat_id: ${TG_CHAT_ID}
+        api_url: https://api.telegram.org
+        send_resolved: true
+        parse_mode: HTML
+        message: |
+          {{- if eq .Status "firing" }}🔥{{ else }}✅{{ end }} <b>[{{ .CommonLabels.severity }}] {{ .CommonLabels.alertname }}</b>
+          {{ range .Alerts }}
+          • <b>{{ .Annotations.summary }}</b>
+          {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+          实例: <code>{{ .Labels.instance }}</code>
+          时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+
+  # P0 用同一通道但单独命名，方便后续切到 PagerDuty/电话
+  - name: telegram-p0
+    telegram_configs:
+      - bot_token: '${TG_BOT_TOKEN}'
+        chat_id: ${TG_CHAT_ID}
+        api_url: https://api.telegram.org
+        send_resolved: true
+        parse_mode: HTML
+        message: |
+          {{- if eq .Status "firing" }}🚨🚨🚨 <b>P0 告警！立即响应！</b>{{ else }}✅ P0 已恢复{{ end }}
+          {{ range .Alerts }}
+          • <b>{{ .Annotations.summary }}</b>
+          {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+          实例: <code>{{ .Labels.instance }}</code>
+          时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+
+inhibit_rules:
+  # 全挂时不重复发单实例挂的告警
+  - source_matchers:
+      - alertname = NewApiBothInstancesDown
+    target_matchers:
+      - alertname = NewApiAllDown
+    equal: ['cluster']

@@ -1,0 +1,20 @@
+all:
+  vars:
+    ansible_user: deploy
+    env: staging
+    new_api_image: ghcr.io/yourorg/new-api
+    new_api_replicas: 1
+
+  children:
+    gateways:
+      hosts:
+        stage-gw:
+          ansible_host: 10.1.10.10
+    db_primary:
+      hosts:
+        stage-pg:
+          ansible_host: 10.1.20.10
+    redis:
+      hosts:
+        stage-redis:
+          ansible_host: 10.1.30.10
