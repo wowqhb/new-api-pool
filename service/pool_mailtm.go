@@ -37,8 +37,8 @@ type MailTmAccount struct {
 
 // MailTmMessage 邮件元数据 + 正文
 type MailTmMessage struct {
-	ID       string `json:"id"`
-	From     struct {
+	ID   string `json:"id"`
+	From struct {
 		Address string `json:"address"`
 		Name    string `json:"name"`
 	} `json:"from"`
@@ -115,9 +115,10 @@ func CreateMailTmAccount() (*MailTmAccount, error) {
 }
 
 // WaitForMessage 阻塞等待匹配 sender / subject 关键字的邮件
-//   senderContains: 发件人地址子串（例如 "openrouter.ai"），传 "" 不过滤
-//   subjectContains: 主题子串（例如 "verify"），传 "" 不过滤
-//   timeout: 超时
+//
+//	senderContains: 发件人地址子串（例如 "openrouter.ai"），传 "" 不过滤
+//	subjectContains: 主题子串（例如 "verify"），传 "" 不过滤
+//	timeout: 超时
 //
 // 返回首封匹配邮件（含正文）。
 func WaitForMessage(acc *MailTmAccount, senderContains, subjectContains string, timeout time.Duration) (*MailTmMessage, error) {

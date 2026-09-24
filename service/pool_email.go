@@ -213,9 +213,9 @@ func (p *oneSecMailProvider) Wait(box *EmailMailbox, senderContains, subjectCont
 				continue
 			}
 			var detail struct {
-				From    string `json:"from"`
-				Subject string `json:"subject"`
-				Body    string `json:"body"`
+				From     string `json:"from"`
+				Subject  string `json:"subject"`
+				Body     string `json:"body"`
 				HTMLBody string `json:"htmlBody"`
 				TextBody string `json:"textBody"`
 			}
@@ -407,4 +407,3 @@ func ExtractCodeFromEmail(m *EmailMessage, length int) string {
 	}
 	return ""
 }
-

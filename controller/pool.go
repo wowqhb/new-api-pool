@@ -683,13 +683,14 @@ func EnqueuePoolRecipe(c *gin.Context) {
 }
 
 // ManualSubmitJobResult 手动模式回填结果
-//   POST /api/pool/jobs/:id/manual-result
-//   body: { account_name, key_raw, balance_usd, expire_at, notes, create_channel(bool), group_name }
+//
+//	POST /api/pool/jobs/:id/manual-result
+//	body: { account_name, key_raw, balance_usd, expire_at, notes, create_channel(bool), group_name }
 //
 // 行为：
-//  1) 在 pool_accounts 表插入一条记录（Key 仅以脱敏串入库）
-//  2) 若 create_channel=true 且 Recipe.ChannelType>0，自动在 channels 表新建一条
-//  3) 更新 Job 状态为 success，写 result_json，并把 Recipe.success_count + 1
+//  1. 在 pool_accounts 表插入一条记录（Key 仅以脱敏串入库）
+//  2. 若 create_channel=true 且 Recipe.ChannelType>0，自动在 channels 表新建一条
+//  3. 更新 Job 状态为 success，写 result_json，并把 Recipe.success_count + 1
 func ManualSubmitJobResult(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

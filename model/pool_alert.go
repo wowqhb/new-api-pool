@@ -17,11 +17,11 @@ const (
 
 type PoolAlertHistory struct {
 	Id          int    `json:"id"`
-	RuleKey     string `json:"rule_key" gorm:"size:64;index"`         // health_check / channel_down / balance_low / fail_rate_high
+	RuleKey     string `json:"rule_key" gorm:"size:64;index"` // health_check / channel_down / balance_low / fail_rate_high
 	Severity    string `json:"severity" gorm:"size:16;default:'info';index"`
 	Title       string `json:"title" gorm:"size:255"`
 	Message     string `json:"message" gorm:"type:text"`
-	TargetType  string `json:"target_type" gorm:"size:32"`            // channel / pool_account / group / system
+	TargetType  string `json:"target_type" gorm:"size:32"` // channel / pool_account / group / system
 	TargetId    int    `json:"target_id" gorm:"default:0"`
 	Resolved    bool   `json:"resolved" gorm:"default:false;index"`
 	ResolvedAt  int64  `json:"resolved_at" gorm:"bigint;default:0"`
