@@ -57,3 +57,4 @@ token_estimator_test.go
 # Electron (legacy upstream) ──────────────────────────────────────────────────
 electron/node_modules
 electron/dist
+.marscode/deviceInfo.json
