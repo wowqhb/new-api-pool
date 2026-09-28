@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/pkg/cachex"
 	"github.com/samber/hot"
 	"gorm.io/gorm"
@@ -38,8 +39,8 @@ var (
 )
 
 const (
-	subscriptionPlanCacheNamespace     = "new-api:subscription_plan:v1"
-	subscriptionPlanInfoCacheNamespace = "new-api:subscription_plan_info:v1"
+	subscriptionPlanCacheNamespace     = const_var.REDIS_KEY_PREFIX + ":new-api:subscription_plan:v1"
+	subscriptionPlanInfoCacheNamespace = const_var.REDIS_KEY_PREFIX + ":new-api:subscription_plan_info:v1"
 )
 
 var (

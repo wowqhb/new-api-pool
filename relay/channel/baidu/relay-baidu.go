@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -189,7 +190,7 @@ func baiduEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *ht
 }
 
 func getBaiduAccessToken(apiKey string) (string, error) {
-	if val, ok := baiduTokenStore.Load(apiKey); ok {
+	if val, ok := baiduTokenStore.Load(fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, apiKey)); ok {
 		var accessToken BaiduAccessToken
 		if accessToken, ok = val.(BaiduAccessToken); ok {
 			// soon this will expire
@@ -241,6 +242,6 @@ func getBaiduAccessTokenHelper(apiKey string) (*BaiduAccessToken, error) {
 		return nil, errors.New("getBaiduAccessTokenHelper get empty access token")
 	}
 	accessToken.ExpiresAt = time.Now().Add(time.Duration(accessToken.ExpiresIn) * time.Second)
-	baiduTokenStore.Store(apiKey, accessToken)
+	baiduTokenStore.Store(fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, apiKey), accessToken)
 	return &accessToken, nil
 }

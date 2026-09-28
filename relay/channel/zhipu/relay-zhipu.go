@@ -3,6 +3,7 @@ package zhipu
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -27,11 +29,13 @@ import (
 // https://open.bigmodel.cn/api/paas/v3/model-api/chatglm_std/invoke
 // https://open.bigmodel.cn/api/paas/v3/model-api/chatglm_std/sse-invoke
 
-var zhipuTokens sync.Map
-var expSeconds int64 = 24 * 3600
+var (
+	zhipuTokens sync.Map
+	expSeconds  int64 = 24 * 3600
+)
 
 func getZhipuToken(apikey string) string {
-	data, ok := zhipuTokens.Load(apikey)
+	data, ok := zhipuTokens.Load(fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, apikey))
 	if ok {
 		tokenData := data.(zhipuTokenData)
 		if time.Now().Before(tokenData.ExpiryTime) {
@@ -69,7 +73,7 @@ func getZhipuToken(apikey string) string {
 		return ""
 	}
 
-	zhipuTokens.Store(apikey, zhipuTokenData{
+	zhipuTokens.Store(fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, apikey), zhipuTokenData{
 		Token:      tokenString,
 		ExpiryTime: expiryTime,
 	})

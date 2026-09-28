@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/bytedance/gopkg/util/gopool"
 )
@@ -55,7 +56,7 @@ func CheckNotificationLimit(userId int, notifyType string) (bool, error) {
 }
 
 func checkRedisLimit(userId int, notifyType string) (bool, error) {
-	key := fmt.Sprintf("notify_limit:%d:%s:%s", userId, notifyType, time.Now().Format("2006010215"))
+	key := fmt.Sprintf("%s:notify_limit:%d:%s:%s", const_var.REDIS_KEY_PREFIX, userId, notifyType, time.Now().Format("2006010215"))
 
 	// Get current count
 	count, err := common.RedisGet(key)
@@ -90,7 +91,7 @@ func checkMemoryLimit(userId int, notifyType string) (bool, error) {
 	// Ensure cleanup task is started
 	cleanupOnce.Do(startCleanupTask)
 
-	key := fmt.Sprintf("%d:%s:%s", userId, notifyType, time.Now().Format("2006010215"))
+	key := fmt.Sprintf("%s:notify_limit:%d:%s:%s", const_var.REDIS_KEY_PREFIX, userId, notifyType, time.Now().Format("2006010215"))
 	now := time.Now()
 
 	// Get current limit count or initialize new one

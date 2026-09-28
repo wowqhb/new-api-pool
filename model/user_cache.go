@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 
@@ -46,7 +47,7 @@ func (user *UserBase) GetSetting() dto.UserSetting {
 
 // getUserCacheKey returns the key for user cache
 func getUserCacheKey(userId int) string {
-	return fmt.Sprintf("user:%d", userId)
+	return fmt.Sprintf("%s:user:%d", const_var.REDIS_KEY_PREFIX, userId)
 }
 
 // invalidateUserCache clears user cache

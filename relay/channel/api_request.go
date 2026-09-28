@@ -12,6 +12,7 @@ import (
 	"time"
 
 	common2 "github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/constant"
@@ -83,17 +84,18 @@ func getHeaderPassthroughRegex(pattern string) (*regexp.Regexp, error) {
 	if pattern == "" {
 		return nil, errors.New("empty regex pattern")
 	}
-	if v, ok := headerPassthroughRegexCache.Load(pattern); ok {
+	key := fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, pattern)
+	if v, ok := headerPassthroughRegexCache.Load(key); ok {
 		if re, ok := v.(*regexp.Regexp); ok {
 			return re, nil
 		}
-		headerPassthroughRegexCache.Delete(pattern)
+		headerPassthroughRegexCache.Delete(key)
 	}
 	compiled, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
 	}
-	actual, _ := headerPassthroughRegexCache.LoadOrStore(pattern, compiled)
+	actual, _ := headerPassthroughRegexCache.LoadOrStore(key, compiled)
 	if re, ok := actual.(*regexp.Regexp); ok {
 		return re, nil
 	}
@@ -103,6 +105,7 @@ func getHeaderPassthroughRegex(pattern string) (*regexp.Regexp, error) {
 func IsHeaderPassthroughRuleKey(key string) bool {
 	return isHeaderPassthroughRuleKey(key)
 }
+
 func isHeaderPassthroughRuleKey(key string) bool {
 	key = strings.TrimSpace(key)
 	if key == "" {
@@ -376,8 +379,8 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, fmt.Errorf("dial failed to %s: %w", fullRequestURL, err)
 	}
 	// send request body
-	//all, err := io.ReadAll(requestBody)
-	//err = service.WssString(c, targetConn, string(all))
+	// all, err := io.ReadAll(requestBody)
+	// err = service.WssString(c, targetConn, string(all))
 	return targetConn, nil
 }
 
@@ -483,6 +486,7 @@ func sendPingData(c *gin.Context, mutex *sync.Mutex) error {
 func DoRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
 	return doRequest(c, req, info)
 }
+
 func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
 	var client *http.Client
 	var err error

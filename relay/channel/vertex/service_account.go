@@ -6,18 +6,18 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/QuantumNous/new-api/const_var"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/bytedance/gopkg/cache/asynccache"
 	"github.com/golang-jwt/jwt/v5"
-
-	"fmt"
-	"time"
 )
 
 type Credentials struct {
@@ -40,9 +40,9 @@ var Cache = asynccache.NewAsyncCache(asynccache.Options{
 func getAccessToken(a *Adaptor, info *relaycommon.RelayInfo) (string, error) {
 	var cacheKey string
 	if info.ChannelIsMultiKey {
-		cacheKey = fmt.Sprintf("access-token-%d-%d", info.ChannelId, info.ChannelMultiKeyIndex)
+		cacheKey = fmt.Sprintf("%s:access-token-%d-%d", const_var.REDIS_KEY_PREFIX, info.ChannelId, info.ChannelMultiKeyIndex)
 	} else {
-		cacheKey = fmt.Sprintf("access-token-%d", info.ChannelId)
+		cacheKey = fmt.Sprintf("%s:access-token-%d", const_var.REDIS_KEY_PREFIX, info.ChannelId)
 	}
 	val, err := Cache.Get(cacheKey)
 	if err == nil {
@@ -64,7 +64,6 @@ func getAccessToken(a *Adaptor, info *relaycommon.RelayInfo) (string, error) {
 }
 
 func createSignedJWT(email, privateKeyPEM string) (string, error) {
-
 	privateKeyPEM = strings.ReplaceAll(privateKeyPEM, "-----BEGIN PRIVATE KEY-----", "")
 	privateKeyPEM = strings.ReplaceAll(privateKeyPEM, "-----END PRIVATE KEY-----", "")
 	privateKeyPEM = strings.ReplaceAll(privateKeyPEM, "\r", "")
@@ -105,7 +104,6 @@ func createSignedJWT(email, privateKeyPEM string) (string, error) {
 }
 
 func exchangeJwtForAccessToken(signedJWT string, info *relaycommon.RelayInfo) (string, error) {
-
 	authURL := "https://www.googleapis.com/oauth2/v4/token"
 	data := url.Values{}
 	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer")

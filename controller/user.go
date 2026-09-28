@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
@@ -852,7 +853,6 @@ type ManageRequest struct {
 func ManageUser(c *gin.Context) {
 	var req ManageRequest
 	err := json.NewDecoder(c.Request.Body).Decode(&req)
-
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -1039,8 +1039,10 @@ type topUpRequest struct {
 	Key string `json:"key"`
 }
 
-var topUpLocks sync.Map
-var topUpCreateLock sync.Mutex
+var (
+	topUpLocks      sync.Map
+	topUpCreateLock sync.Mutex
+)
 
 type topUpTryLock struct {
 	ch chan struct{}
@@ -1067,16 +1069,17 @@ func (l *topUpTryLock) Unlock() {
 }
 
 func getTopUpLock(userID int) *topUpTryLock {
-	if v, ok := topUpLocks.Load(userID); ok {
+	key := fmt.Sprintf("%s:%d", const_var.REDIS_KEY_PREFIX, userID)
+	if v, ok := topUpLocks.Load(key); ok {
 		return v.(*topUpTryLock)
 	}
 	topUpCreateLock.Lock()
 	defer topUpCreateLock.Unlock()
-	if v, ok := topUpLocks.Load(userID); ok {
+	if v, ok := topUpLocks.Load(key); ok {
 		return v.(*topUpTryLock)
 	}
 	l := newTopUpTryLock()
-	topUpLocks.Store(userID, l)
+	topUpLocks.Store(key, l)
 	return l
 }
 

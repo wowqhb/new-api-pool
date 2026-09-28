@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/types"
@@ -38,7 +40,7 @@ type Channel struct {
 	Group              string  `json:"group" gorm:"type:varchar(64);default:'default'"`
 	UsedQuota          int64   `json:"used_quota" gorm:"bigint;default:0"`
 	ModelMapping       *string `json:"model_mapping" gorm:"type:text"`
-	//MaxInputTokens     *int    `json:"max_input_tokens" gorm:"default:0"`
+	// MaxInputTokens     *int    `json:"max_input_tokens" gorm:"default:0"`
 	StatusCodeMapping *string `json:"status_code_mapping" gorm:"type:varchar(1024);default:''"`
 	Priority          *int64  `json:"priority" gorm:"bigint;default:0"`
 	AutoBan           *int    `json:"auto_ban" gorm:"default:1"`
@@ -541,12 +543,13 @@ var channelPollingLocks sync.Map
 
 // GetChannelPollingLock returns or creates a mutex for the given channel ID
 func GetChannelPollingLock(channelId int) *sync.Mutex {
-	if lock, exists := channelPollingLocks.Load(channelId); exists {
+	key := fmt.Sprintf("%s:%d", const_var.REDIS_KEY_PREFIX, channelId)
+	if lock, exists := channelPollingLocks.Load(key); exists {
 		return lock.(*sync.Mutex)
 	}
 	// Create new lock for this channel
 	newLock := &sync.Mutex{}
-	actual, _ := channelPollingLocks.LoadOrStore(channelId, newLock)
+	actual, _ := channelPollingLocks.LoadOrStore(key, newLock)
 	return actual.(*sync.Mutex)
 }
 
@@ -562,9 +565,10 @@ func CleanupChannelPollingLocks() {
 	}
 
 	channelPollingLocks.Range(func(key, value interface{}) bool {
-		channelId := key.(int)
+		key2 := key.(string)
+		channelId, _ := strconv.Atoi(strings.Split(key2, ":")[1])
 		if !activeChannelSet[channelId] {
-			channelPollingLocks.Delete(channelId)
+			channelPollingLocks.Delete(key2)
 		}
 		return true
 	})
@@ -833,7 +837,6 @@ func SearchTags(keyword string, group string, model string, idSort bool) ([]*str
 	err := DB.Table("(?) as sub", subQuery).
 		Select("DISTINCT tag").
 		Find(&tags).Error
-
 	if err != nil {
 		return nil, err
 	}

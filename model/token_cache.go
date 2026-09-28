@@ -5,13 +5,14 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/constant"
 )
 
 func cacheSetToken(token Token) error {
 	key := common.GenerateHMAC(token.Key)
 	token.Clean()
-	err := common.RedisHSetObj(fmt.Sprintf("token:%s", key), &token, time.Duration(common.RedisKeyCacheSeconds())*time.Second)
+	err := common.RedisHSetObj(fmt.Sprintf("%s:token:%s", const_var.REDIS_KEY_PREFIX, key), &token, time.Duration(common.RedisKeyCacheSeconds())*time.Second)
 	if err != nil {
 		return err
 	}
@@ -20,7 +21,7 @@ func cacheSetToken(token Token) error {
 
 func cacheDeleteToken(key string) error {
 	key = common.GenerateHMAC(key)
-	err := common.RedisDelKey(fmt.Sprintf("token:%s", key))
+	err := common.RedisDelKey(fmt.Sprintf("%s:token:%s", const_var.REDIS_KEY_PREFIX, key))
 	if err != nil {
 		return err
 	}
@@ -29,7 +30,7 @@ func cacheDeleteToken(key string) error {
 
 func cacheIncrTokenQuota(key string, increment int64) error {
 	key = common.GenerateHMAC(key)
-	err := common.RedisHIncrBy(fmt.Sprintf("token:%s", key), constant.TokenFiledRemainQuota, increment)
+	err := common.RedisHIncrBy(fmt.Sprintf("%s:token:%s", const_var.REDIS_KEY_PREFIX, key), constant.TokenFiledRemainQuota, increment)
 	if err != nil {
 		return err
 	}
@@ -42,7 +43,7 @@ func cacheDecrTokenQuota(key string, decrement int64) error {
 
 func cacheSetTokenField(key string, field string, value string) error {
 	key = common.GenerateHMAC(key)
-	err := common.RedisHSetField(fmt.Sprintf("token:%s", key), field, value)
+	err := common.RedisHSetField(fmt.Sprintf("%s:token:%s", const_var.REDIS_KEY_PREFIX, key), field, value)
 	if err != nil {
 		return err
 	}
@@ -56,7 +57,7 @@ func cacheGetTokenByKey(key string) (*Token, error) {
 		return nil, fmt.Errorf("redis is not enabled")
 	}
 	var token Token
-	err := common.RedisHGetObj(fmt.Sprintf("token:%s", hmacKey), &token)
+	err := common.RedisHGetObj(fmt.Sprintf("%s:token:%s", const_var.REDIS_KEY_PREFIX, hmacKey), &token)
 	if err != nil {
 		return nil, err
 	}

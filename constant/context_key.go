@@ -1,69 +1,71 @@
 package constant
 
+import "github.com/QuantumNous/new-api/const_var"
+
 type ContextKey string
 
 const (
-	ContextKeyTokenCountMeta  ContextKey = "token_count_meta"
-	ContextKeyPromptTokens    ContextKey = "prompt_tokens"
-	ContextKeyEstimatedTokens ContextKey = "estimated_tokens"
+	ContextKeyTokenCountMeta  ContextKey = const_var.REDIS_KEY_PREFIX + ":token_count_meta"
+	ContextKeyPromptTokens    ContextKey = const_var.REDIS_KEY_PREFIX + ":prompt_tokens"
+	ContextKeyEstimatedTokens ContextKey = const_var.REDIS_KEY_PREFIX + ":estimated_tokens"
 
-	ContextKeyOriginalModel    ContextKey = "original_model"
-	ContextKeyRequestStartTime ContextKey = "request_start_time"
+	ContextKeyOriginalModel    ContextKey = const_var.REDIS_KEY_PREFIX + ":original_model"
+	ContextKeyRequestStartTime ContextKey = const_var.REDIS_KEY_PREFIX + ":request_start_time"
 
 	/* token related keys */
-	ContextKeyTokenUnlimited         ContextKey = "token_unlimited_quota"
-	ContextKeyTokenKey               ContextKey = "token_key"
-	ContextKeyTokenId                ContextKey = "token_id"
-	ContextKeyTokenGroup             ContextKey = "token_group"
-	ContextKeyTokenSpecificChannelId ContextKey = "specific_channel_id"
-	ContextKeyTokenModelLimitEnabled ContextKey = "token_model_limit_enabled"
-	ContextKeyTokenModelLimit        ContextKey = "token_model_limit"
-	ContextKeyTokenCrossGroupRetry   ContextKey = "token_cross_group_retry"
+	ContextKeyTokenUnlimited         ContextKey = const_var.REDIS_KEY_PREFIX + ":token_unlimited_quota"
+	ContextKeyTokenKey               ContextKey = const_var.REDIS_KEY_PREFIX + ":token_key"
+	ContextKeyTokenId                ContextKey = const_var.REDIS_KEY_PREFIX + ":token_id"
+	ContextKeyTokenGroup             ContextKey = const_var.REDIS_KEY_PREFIX + ":token_group"
+	ContextKeyTokenSpecificChannelId ContextKey = const_var.REDIS_KEY_PREFIX + ":specific_channel_id"
+	ContextKeyTokenModelLimitEnabled ContextKey = const_var.REDIS_KEY_PREFIX + ":token_model_limit_enabled"
+	ContextKeyTokenModelLimit        ContextKey = const_var.REDIS_KEY_PREFIX + ":token_model_limit"
+	ContextKeyTokenCrossGroupRetry   ContextKey = const_var.REDIS_KEY_PREFIX + ":token_cross_group_retry"
 
 	/* channel related keys */
-	ContextKeyChannelId                ContextKey = "channel_id"
-	ContextKeyChannelName              ContextKey = "channel_name"
-	ContextKeyChannelCreateTime        ContextKey = "channel_create_time"
-	ContextKeyChannelBaseUrl           ContextKey = "base_url"
-	ContextKeyChannelType              ContextKey = "channel_type"
-	ContextKeyChannelSetting           ContextKey = "channel_setting"
-	ContextKeyChannelOtherSetting      ContextKey = "channel_other_setting"
-	ContextKeyChannelParamOverride     ContextKey = "param_override"
-	ContextKeyChannelHeaderOverride    ContextKey = "header_override"
-	ContextKeyChannelOrganization      ContextKey = "channel_organization"
-	ContextKeyChannelAutoBan           ContextKey = "auto_ban"
-	ContextKeyChannelModelMapping      ContextKey = "model_mapping"
-	ContextKeyChannelStatusCodeMapping ContextKey = "status_code_mapping"
-	ContextKeyChannelIsMultiKey        ContextKey = "channel_is_multi_key"
-	ContextKeyChannelMultiKeyIndex     ContextKey = "channel_multi_key_index"
-	ContextKeyChannelKey               ContextKey = "channel_key"
+	ContextKeyChannelId                ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_id"
+	ContextKeyChannelName              ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_name"
+	ContextKeyChannelCreateTime        ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_create_time"
+	ContextKeyChannelBaseUrl           ContextKey = const_var.REDIS_KEY_PREFIX + ":base_url"
+	ContextKeyChannelType              ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_type"
+	ContextKeyChannelSetting           ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_setting"
+	ContextKeyChannelOtherSetting      ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_other_setting"
+	ContextKeyChannelParamOverride     ContextKey = const_var.REDIS_KEY_PREFIX + ":param_override"
+	ContextKeyChannelHeaderOverride    ContextKey = const_var.REDIS_KEY_PREFIX + ":header_override"
+	ContextKeyChannelOrganization      ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_organization"
+	ContextKeyChannelAutoBan           ContextKey = const_var.REDIS_KEY_PREFIX + ":auto_ban"
+	ContextKeyChannelModelMapping      ContextKey = const_var.REDIS_KEY_PREFIX + ":model_mapping"
+	ContextKeyChannelStatusCodeMapping ContextKey = const_var.REDIS_KEY_PREFIX + ":status_code_mapping"
+	ContextKeyChannelIsMultiKey        ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_is_multi_key"
+	ContextKeyChannelMultiKeyIndex     ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_multi_key_index"
+	ContextKeyChannelKey               ContextKey = const_var.REDIS_KEY_PREFIX + ":channel_key"
 
-	ContextKeyAutoGroup           ContextKey = "auto_group"
-	ContextKeyAutoGroupIndex      ContextKey = "auto_group_index"
-	ContextKeyAutoGroupRetryIndex ContextKey = "auto_group_retry_index"
+	ContextKeyAutoGroup           ContextKey = const_var.REDIS_KEY_PREFIX + ":auto_group"
+	ContextKeyAutoGroupIndex      ContextKey = const_var.REDIS_KEY_PREFIX + ":auto_group_index"
+	ContextKeyAutoGroupRetryIndex ContextKey = const_var.REDIS_KEY_PREFIX + ":auto_group_retry_index"
 
 	/* user related keys */
-	ContextKeyUserId      ContextKey = "id"
-	ContextKeyUserSetting ContextKey = "user_setting"
-	ContextKeyUserQuota   ContextKey = "user_quota"
-	ContextKeyUserStatus  ContextKey = "user_status"
-	ContextKeyUserEmail   ContextKey = "user_email"
-	ContextKeyUserGroup   ContextKey = "user_group"
-	ContextKeyUsingGroup  ContextKey = "group"
-	ContextKeyUserName    ContextKey = "username"
+	ContextKeyUserId      ContextKey = const_var.REDIS_KEY_PREFIX + ":id"
+	ContextKeyUserSetting ContextKey = const_var.REDIS_KEY_PREFIX + ":user_setting"
+	ContextKeyUserQuota   ContextKey = const_var.REDIS_KEY_PREFIX + ":user_quota"
+	ContextKeyUserStatus  ContextKey = const_var.REDIS_KEY_PREFIX + ":user_status"
+	ContextKeyUserEmail   ContextKey = const_var.REDIS_KEY_PREFIX + ":user_email"
+	ContextKeyUserGroup   ContextKey = const_var.REDIS_KEY_PREFIX + ":user_group"
+	ContextKeyUsingGroup  ContextKey = const_var.REDIS_KEY_PREFIX + ":group"
+	ContextKeyUserName    ContextKey = const_var.REDIS_KEY_PREFIX + ":username"
 
-	ContextKeyLocalCountTokens ContextKey = "local_count_tokens"
+	ContextKeyLocalCountTokens ContextKey = const_var.REDIS_KEY_PREFIX + ":local_count_tokens"
 
-	ContextKeySystemPromptOverride ContextKey = "system_prompt_override"
+	ContextKeySystemPromptOverride ContextKey = const_var.REDIS_KEY_PREFIX + ":system_prompt_override"
 
 	// ContextKeyFileSourcesToCleanup stores file sources that need cleanup when request ends
-	ContextKeyFileSourcesToCleanup ContextKey = "file_sources_to_cleanup"
+	ContextKeyFileSourcesToCleanup ContextKey = const_var.REDIS_KEY_PREFIX + ":file_sources_to_cleanup"
 
 	// ContextKeyAdminRejectReason stores an admin-only reject/block reason extracted from upstream responses.
 	// It is not returned to end users, but can be persisted into consume/error logs for debugging.
-	ContextKeyAdminRejectReason ContextKey = "admin_reject_reason"
+	ContextKeyAdminRejectReason ContextKey = const_var.REDIS_KEY_PREFIX + ":admin_reject_reason"
 
 	// ContextKeyLanguage stores the user's language preference for i18n
-	ContextKeyLanguage ContextKey = "language"
-	ContextKeyIsStream ContextKey = "is_stream"
+	ContextKeyLanguage ContextKey = const_var.REDIS_KEY_PREFIX + ":language"
+	ContextKeyIsStream ContextKey = const_var.REDIS_KEY_PREFIX + ":is_stream"
 )

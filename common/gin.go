@@ -11,14 +11,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
 
-const KeyRequestBody = "key_request_body"
-const KeyBodyStorage = "key_body_storage"
+const (
+	KeyRequestBody = const_var.REDIS_KEY_PREFIX + ":key_request_body"
+	KeyBodyStorage = const_var.REDIS_KEY_PREFIX + ":key_body_storage"
+)
 
 var ErrRequestBodyTooLarge = errors.New("request body too large")
 

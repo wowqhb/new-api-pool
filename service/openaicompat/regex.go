@@ -1,8 +1,11 @@
 package openaicompat
 
 import (
+	"fmt"
 	"regexp"
 	"sync"
+
+	"github.com/QuantumNous/new-api/const_var"
 )
 
 var compiledRegexCache sync.Map // map[string]*regexp.Regexp
@@ -15,7 +18,8 @@ func matchAnyRegex(patterns []string, s string) bool {
 		if pattern == "" {
 			continue
 		}
-		re, ok := compiledRegexCache.Load(pattern)
+		key := fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, pattern)
+		re, ok := compiledRegexCache.Load(key)
 		if !ok {
 			compiled, err := regexp.Compile(pattern)
 			if err != nil {
@@ -23,7 +27,7 @@ func matchAnyRegex(patterns []string, s string) bool {
 				continue
 			}
 			re = compiled
-			compiledRegexCache.Store(pattern, re)
+			compiledRegexCache.Store(key, re)
 		}
 		if re.(*regexp.Regexp).MatchString(s) {
 			return true

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/cachex"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -20,14 +21,14 @@ import (
 )
 
 const (
-	ginKeyChannelAffinityCacheKey   = "channel_affinity_cache_key"
-	ginKeyChannelAffinityTTLSeconds = "channel_affinity_ttl_seconds"
-	ginKeyChannelAffinityMeta       = "channel_affinity_meta"
-	ginKeyChannelAffinityLogInfo    = "channel_affinity_log_info"
-	ginKeyChannelAffinitySkipRetry  = "channel_affinity_skip_retry_on_failure"
+	ginKeyChannelAffinityCacheKey   = const_var.REDIS_KEY_PREFIX + ":channel_affinity_cache_key"
+	ginKeyChannelAffinityTTLSeconds = const_var.REDIS_KEY_PREFIX + ":channel_affinity_ttl_seconds"
+	ginKeyChannelAffinityMeta       = const_var.REDIS_KEY_PREFIX + ":channel_affinity_meta"
+	ginKeyChannelAffinityLogInfo    = const_var.REDIS_KEY_PREFIX + ":channel_affinity_log_info"
+	ginKeyChannelAffinitySkipRetry  = const_var.REDIS_KEY_PREFIX + ":channel_affinity_skip_retry_on_failure"
 
-	channelAffinityCacheNamespace           = "new-api:channel_affinity:v1"
-	channelAffinityUsageCacheStatsNamespace = "new-api:channel_affinity_usage_cache_stats:v1"
+	channelAffinityCacheNamespace           = const_var.REDIS_KEY_PREFIX + ":channel_affinity:v1"
+	channelAffinityUsageCacheStatsNamespace = const_var.REDIS_KEY_PREFIX + ":channel_affinity_usage_cache_stats:v1"
 )
 
 var (
@@ -253,14 +254,15 @@ func matchAnyRegexCached(patterns []string, s string) bool {
 		if pattern == "" {
 			continue
 		}
-		re, ok := channelAffinityRegexCache.Load(pattern)
+		key := fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, pattern)
+		re, ok := channelAffinityRegexCache.Load(key)
 		if !ok {
 			compiled, err := regexp.Compile(pattern)
 			if err != nil {
 				continue
 			}
 			re = compiled
-			channelAffinityRegexCache.Store(pattern, re)
+			channelAffinityRegexCache.Store(key, re)
 		}
 		if re.(*regexp.Regexp).MatchString(s) {
 			return true

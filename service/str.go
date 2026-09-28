@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/QuantumNous/new-api/const_var"
 	goahocorasick "github.com/anknown/ahocorasick"
 )
 
@@ -100,7 +101,8 @@ func getOrBuildAC(dict []string) *goahocorasick.Machine {
 	if key == "" {
 		return nil
 	}
-	if v, ok := acCache.Load(key); ok {
+	key2 := fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, key)
+	if v, ok := acCache.Load(key2); ok {
 		if m, ok2 := v.(*goahocorasick.Machine); ok2 {
 			return m
 		}
@@ -109,7 +111,7 @@ func getOrBuildAC(dict []string) *goahocorasick.Machine {
 	if m == nil {
 		return nil
 	}
-	if actual, loaded := acCache.LoadOrStore(key, m); loaded {
+	if actual, loaded := acCache.LoadOrStore(key2, m); loaded {
 		if cached, ok := actual.(*goahocorasick.Machine); ok {
 			return cached
 		}

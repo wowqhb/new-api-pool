@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/const_var"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
@@ -257,8 +258,10 @@ func RequestEpay(c *gin.Context) {
 }
 
 // tradeNo lock
-var orderLocks sync.Map
-var createLock sync.Mutex
+var (
+	orderLocks sync.Map
+	createLock sync.Mutex
+)
 
 // refCountedMutex 带引用计数的互斥锁，确保最后一个使用者才从 map 中删除
 type refCountedMutex struct {
@@ -270,11 +273,12 @@ type refCountedMutex struct {
 func LockOrder(tradeNo string) {
 	createLock.Lock()
 	var rcm *refCountedMutex
-	if v, ok := orderLocks.Load(tradeNo); ok {
+	key := fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, tradeNo)
+	if v, ok := orderLocks.Load(key); ok {
 		rcm = v.(*refCountedMutex)
 	} else {
 		rcm = &refCountedMutex{}
-		orderLocks.Store(tradeNo, rcm)
+		orderLocks.Store(key, rcm)
 	}
 	rcm.refCount++
 	createLock.Unlock()
@@ -283,7 +287,8 @@ func LockOrder(tradeNo string) {
 
 // UnlockOrder 释放给定订单号的锁
 func UnlockOrder(tradeNo string) {
-	v, ok := orderLocks.Load(tradeNo)
+	key := fmt.Sprintf("%s:%s", const_var.REDIS_KEY_PREFIX, tradeNo)
+	v, ok := orderLocks.Load(key)
 	if !ok {
 		return
 	}
@@ -293,7 +298,7 @@ func UnlockOrder(tradeNo string) {
 	createLock.Lock()
 	rcm.refCount--
 	if rcm.refCount == 0 {
-		orderLocks.Delete(tradeNo)
+		orderLocks.Delete(key)
 	}
 	createLock.Unlock()
 }
