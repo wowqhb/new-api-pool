@@ -56,7 +56,7 @@ func GetPoolOverview(c *gin.Context) {
 	model.LOG_DB.Model(&model.Log{}).
 		Select("COALESCE(SUM(quota),0)").
 		Where("created_at >= ? AND type = ?", todayStart, model.LogTypeConsume).
-		Row().Scan(&todayQuota)
+		Scan(&todayQuota)
 	todaySuccess := todayRequests - todayFailure
 	if todaySuccess < 0 {
 		todaySuccess = 0
@@ -67,7 +67,7 @@ func GetPoolOverview(c *gin.Context) {
 	model.DB.Model(&model.TopUp{}).
 		Select("COALESCE(SUM(amount),0)").
 		Where("created_time >= ? AND status = 'success'", todayStart).
-		Row().Scan(&todayRevenue)
+		Scan(&todayRevenue)
 
 	// 用户消耗（quota）转 USD：1 USD = QuotaPerUnit
 	todayConsumeUSD := float64(todayQuota) / common.QuotaPerUnit
@@ -1035,14 +1035,14 @@ func GetPoolBillingSummary(c *gin.Context) {
 	model.DB.Model(&model.TopUp{}).
 		Select("COALESCE(SUM(amount),0)").
 		Where("created_time >= ? AND status = 'success'", startTs).
-		Row().Scan(&revenue)
+		Scan(&revenue)
 
 	// 用户消耗（按 quota 转 USD）
 	var consumeQuota int64
 	model.LOG_DB.Model(&model.Log{}).
 		Select("COALESCE(SUM(quota),0)").
 		Where("created_at >= ? AND type = ?", startTs, model.LogTypeConsume).
-		Row().Scan(&consumeQuota)
+		Scan(&consumeQuota)
 	consumeUSD := float64(consumeQuota) / common.QuotaPerUnit
 
 	upstreamRatio := getFloatOptionOrDefault("PoolUpstreamCostRatio", 0.6)
