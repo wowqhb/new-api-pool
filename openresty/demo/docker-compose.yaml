@@ -1,0 +1,14 @@
+services:
+  openresty:
+    # OpenResty 1.31.1.1，nginx core 1.31.1
+    image: openresty/openresty:1.31.1.1-bookworm
+    container_name: or-1311-queue
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./logs:/usr/local/openresty/nginx/logs
+    environment:
+      TZ: Asia/Shanghai
+    restart: unless-stopped
