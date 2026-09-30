@@ -26,9 +26,10 @@ type FormatJsonSchema struct {
 
 // CgpoolInfo cgpool 信息，用于日志记录
 type CgpoolInfo struct {
-	OptUserId int `json:"opt_user_id"`
-	OrgId     int `json:"org_id"`
-	OrgType   int `json:"org_type"`
+	OptUserId int    `json:"opt_user_id"`
+	OrgId     int    `json:"org_id"`
+	OrgType   int    `json:"org_type"`
+	FromCode  string `json:"from_code,omitempty"`
 }
 
 // GeneralOpenAIRequest represents a general request structure for OpenAI-compatible APIs.

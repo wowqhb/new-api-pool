@@ -55,6 +55,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 			"opt_user_id": info.CgpoolInfo.OptUserId,
 			"org_id":      info.CgpoolInfo.OrgId,
 			"org_type":    info.CgpoolInfo.OrgType,
+			"from_code":   info.CgpoolInfo.FromCode,
 		}
 	}
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{

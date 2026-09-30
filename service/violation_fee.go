@@ -151,6 +151,7 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 			"opt_user_id": relayInfo.CgpoolInfo.OptUserId,
 			"org_id":      relayInfo.CgpoolInfo.OrgId,
 			"org_type":    relayInfo.CgpoolInfo.OrgType,
+			"from_code":   relayInfo.CgpoolInfo.FromCode,
 		}
 	}
 

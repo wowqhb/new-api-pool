@@ -62,6 +62,7 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 			"opt_user_id": relayInfo.CgpoolInfo.OptUserId,
 			"org_id":      relayInfo.CgpoolInfo.OrgId,
 			"org_type":    relayInfo.CgpoolInfo.OrgType,
+			"from_code":   relayInfo.CgpoolInfo.FromCode,
 		}
 	}
 
@@ -275,6 +276,7 @@ func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.Price
 			"opt_user_id": relayInfo.CgpoolInfo.OptUserId,
 			"org_id":      relayInfo.CgpoolInfo.OrgId,
 			"org_type":    relayInfo.CgpoolInfo.OrgType,
+			"from_code":   relayInfo.CgpoolInfo.FromCode,
 		}
 	}
 	return other
