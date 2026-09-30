@@ -146,6 +146,13 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 		"upstream_error_code":  fmt.Sprintf("%v", oai.Code),
 		"violation_fee_marker": CSAMViolationMarker,
 	}
+	if relayInfo.CgpoolInfo != nil {
+		other["cgpool_info"] = map[string]interface{}{
+			"opt_user_id": relayInfo.CgpoolInfo.OptUserId,
+			"org_id":      relayInfo.CgpoolInfo.OrgId,
+			"org_type":    relayInfo.CgpoolInfo.OrgType,
+		}
+	}
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 		ChannelId:      relayInfo.ChannelId,

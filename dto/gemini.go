@@ -20,6 +20,8 @@ type GeminiChatRequest struct {
 	ToolConfig         *ToolConfig                `json:"toolConfig,omitempty"`
 	SystemInstructions *GeminiChatContent         `json:"systemInstruction,omitempty"`
 	CachedContent      string                     `json:"cachedContent,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 }
 
 // UnmarshalJSON allows GeminiChatRequest to accept both snake_case and camelCase fields.
@@ -481,6 +483,8 @@ type GeminiPromptTokensDetails struct {
 type GeminiImageRequest struct {
 	Instances  []GeminiImageInstance `json:"instances"`
 	Parameters GeminiImageParameters `json:"parameters"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 }
 
 type GeminiImageInstance struct {
@@ -512,6 +516,8 @@ type GeminiEmbeddingRequest struct {
 	TaskType             string            `json:"taskType,omitempty"`
 	Title                string            `json:"title,omitempty"`
 	OutputDimensionality int               `json:"outputDimensionality,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 }
 
 func (r *GeminiEmbeddingRequest) IsStream(c *gin.Context) bool {

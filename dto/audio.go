@@ -26,6 +26,8 @@ type AudioRequest struct {
 	XVectorOnlyMode         json.RawMessage `json:"x_vector_only_mode,omitempty"`
 	MaxNewTokens            json.RawMessage `json:"max_new_tokens,omitempty"`
 	InitialCodecChunkFrames json.RawMessage `json:"initial_codec_chunk_frames,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 	// TODO：ensure that the logic remains correct after the stream is started.
 	//Stream                  json.RawMessage `json:"stream,omitempty"`
 }

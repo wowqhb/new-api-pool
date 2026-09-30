@@ -32,6 +32,8 @@ type ImageRequest struct {
 	WatermarkEnabled json.RawMessage `json:"watermark_enabled,omitempty"`
 	UserId           json.RawMessage `json:"user_id,omitempty"`
 	Image            json.RawMessage `json:"image,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 	// 用匿名参数接收额外参数
 	Extra map[string]json.RawMessage `json:"-"`
 }

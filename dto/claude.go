@@ -234,6 +234,8 @@ type ClaudeRequest struct {
 	// ServiceTier specifies upstream service level and may affect billing.
 	// This field is filtered by default and can be enabled via channel setting allow_service_tier.
 	ServiceTier string `json:"service_tier,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 }
 
 // OutputConfigForEffort just for extract effort

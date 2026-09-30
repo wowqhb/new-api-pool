@@ -57,6 +57,14 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 		other["is_system_prompt_overwritten"] = true
 	}
 
+	if relayInfo.CgpoolInfo != nil {
+		other["cgpool_info"] = map[string]interface{}{
+			"opt_user_id": relayInfo.CgpoolInfo.OptUserId,
+			"org_id":      relayInfo.CgpoolInfo.OrgId,
+			"org_type":    relayInfo.CgpoolInfo.OrgType,
+		}
+	}
+
 	adminInfo := make(map[string]interface{})
 	adminInfo["use_channel"] = ctx.GetStringSlice("use_channel")
 	isMultiKey := common.GetContextKeyBool(ctx, constant.ContextKeyChannelIsMultiKey)
@@ -262,6 +270,13 @@ func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.Price
 		other["user_group_ratio"] = priceData.GroupRatioInfo.GroupSpecialRatio
 	}
 	appendRequestPath(nil, relayInfo, other)
+	if relayInfo.CgpoolInfo != nil {
+		other["cgpool_info"] = map[string]interface{}{
+			"opt_user_id": relayInfo.CgpoolInfo.OptUserId,
+			"org_id":      relayInfo.CgpoolInfo.OrgId,
+			"org_type":    relayInfo.CgpoolInfo.OrgType,
+		}
+	}
 	return other
 }
 

@@ -30,6 +30,8 @@ type EmbeddingRequest struct {
 	TopP             *float64 `json:"top_p,omitempty"`
 	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
 	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 }
 
 func (r *EmbeddingRequest) GetTokenCountMeta() *types.TokenCountMeta {

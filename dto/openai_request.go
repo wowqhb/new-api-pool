@@ -24,6 +24,13 @@ type FormatJsonSchema struct {
 	Strict      json.RawMessage `json:"strict,omitempty"`
 }
 
+// CgpoolInfo cgpool 信息，用于日志记录
+type CgpoolInfo struct {
+	OptUserId int `json:"opt_user_id"`
+	OrgId     int `json:"org_id"`
+	OrgType   int `json:"org_type"`
+}
+
 // GeneralOpenAIRequest represents a general request structure for OpenAI-compatible APIs.
 // 参数增加规范：无引用的参数必须使用json.RawMessage类型，并添加omitempty标签
 type GeneralOpenAIRequest struct {
@@ -106,6 +113,8 @@ type GeneralOpenAIRequest struct {
 	SearchMode             json.RawMessage `json:"search_mode,omitempty"`
 	// Minimax
 	ReasoningSplit json.RawMessage `json:"reasoning_split,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 }
 
 func (r *GeneralOpenAIRequest) GetTokenCountMeta() *types.TokenCountMeta {
@@ -858,6 +867,8 @@ type OpenAIResponsesRequest struct {
 	EnableThinking json.RawMessage `json:"enable_thinking,omitempty"`
 	// perplexity
 	Preset json.RawMessage `json:"preset,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 }
 
 func (r *OpenAIResponsesRequest) GetTokenCountMeta() *types.TokenCountMeta {

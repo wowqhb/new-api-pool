@@ -50,6 +50,13 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
+	if info.CgpoolInfo != nil {
+		other["cgpool_info"] = map[string]interface{}{
+			"opt_user_id": info.CgpoolInfo.OptUserId,
+			"org_id":      info.CgpoolInfo.OrgId,
+			"org_type":    info.CgpoolInfo.OrgType,
+		}
+	}
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
 		ChannelId: info.ChannelId,
 		ModelName: info.OriginModelName,

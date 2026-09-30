@@ -155,6 +155,9 @@ type RelayInfo struct {
 
 	PriceData types.PriceData
 
+	// CgpoolInfo cgpool 信息
+	CgpoolInfo *dto.CgpoolInfo
+
 	// TieredBillingSnapshot is a frozen snapshot of tiered billing rules
 	// captured at pre-consume time. Non-nil only when billing mode is "tiered_expr".
 	TieredBillingSnapshot *billingexpr.BillingSnapshot
@@ -348,6 +351,9 @@ func GenRelayInfoClaude(c *gin.Context, request dto.Request) *RelayInfo {
 		LastMessagesType: LastMessageTypeNone,
 	}
 	info.IsClaudeBetaQuery = c.Query("beta") == "true"
+	if req, ok := request.(*dto.ClaudeRequest); ok {
+		info.CgpoolInfo = req.CgpoolInfo
+	}
 	return info
 }
 
@@ -359,18 +365,25 @@ func GenRelayInfoRerank(c *gin.Context, request *dto.RerankRequest) *RelayInfo {
 		Documents:       request.Documents,
 		ReturnDocuments: request.GetReturnDocuments(),
 	}
+	info.CgpoolInfo = request.CgpoolInfo
 	return info
 }
 
 func GenRelayInfoOpenAIAudio(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatOpenAIAudio
+	if req, ok := request.(*dto.AudioRequest); ok {
+		info.CgpoolInfo = req.CgpoolInfo
+	}
 	return info
 }
 
 func GenRelayInfoEmbedding(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatEmbedding
+	if req, ok := request.(*dto.EmbeddingRequest); ok {
+		info.CgpoolInfo = req.CgpoolInfo
+	}
 	return info
 }
 
@@ -399,6 +412,7 @@ func GenRelayInfoResponses(c *gin.Context, request *dto.OpenAIResponsesRequest) 
 			}
 		}
 	}
+	info.CgpoolInfo = request.CgpoolInfo
 	return info
 }
 
@@ -406,19 +420,28 @@ func GenRelayInfoGemini(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatGemini
 	info.ShouldIncludeUsage = false
-
+	if req, ok := request.(*dto.GeminiChatRequest); ok {
+		info.CgpoolInfo = req.CgpoolInfo
+	}
 	return info
 }
 
 func GenRelayInfoImage(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatOpenAIImage
+	if req, ok := request.(*dto.ImageRequest); ok {
+		info.CgpoolInfo = req.CgpoolInfo
+	}
 	return info
 }
 
 func GenRelayInfoOpenAI(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatOpenAI
+	// 提取 cgpool_info
+	if req, ok := request.(*dto.GeneralOpenAIRequest); ok {
+		info.CgpoolInfo = req.CgpoolInfo
+	}
 	return info
 }
 
@@ -632,6 +655,7 @@ func GenRelayInfoResponsesCompaction(c *gin.Context, request *dto.OpenAIResponse
 		info.RelayMode = relayconstant.RelayModeResponsesCompact
 	}
 	info.RelayFormat = types.RelayFormatOpenAIResponsesCompaction
+	info.CgpoolInfo = request.CgpoolInfo
 	return info
 }
 

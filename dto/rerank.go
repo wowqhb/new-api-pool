@@ -16,6 +16,8 @@ type RerankRequest struct {
 	ReturnDocuments *bool  `json:"return_documents,omitempty"`
 	MaxChunkPerDoc  *int   `json:"max_chunk_per_doc,omitempty"`
 	OverLapTokens   *int   `json:"overlap_tokens,omitempty"`
+	// cgpool
+	CgpoolInfo *CgpoolInfo `json:"cgpool_info,omitempty"`
 }
 
 func (r *RerankRequest) IsStream(c *gin.Context) bool {
