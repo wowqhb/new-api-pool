@@ -6,7 +6,7 @@
 services:
   new-api:
     build: .
-    image: ideapool/new-api-pool:latest
+    image: ideapool/new-api-pool:20261008-095119-794
     container_name: new-api-node-1
     restart: always
     ports:
