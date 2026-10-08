@@ -5,7 +5,7 @@
 
 - name: Rollback new-api
   hosts: gateways
-  serial: 2  # 一次回滚 2 台，加速
+  serial: 2 # 一次回滚 2 台，加速
   become: yes
   vars:
     compose_dir: /opt/new-api
@@ -43,7 +43,7 @@
 
     - name: Update image in compose
       replace:
-        path: "{{ compose_dir }}/docker-compose.yml"
+        path: "{{ compose_dir }}/docker-compose.yaml"
         regexp: '^(\s*image:).*$'
         replace: '\1 {{ target_tag }}'
 

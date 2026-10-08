@@ -3,7 +3,7 @@
 
 - name: Deploy new-api to all gateways
   hosts: gateways
-  serial: 1   # 滚动部署：一次一台，避免全部同时重启
+  serial: 1 # 滚动部署：一次一台，避免全部同时重启
   become: yes
   vars:
     image_tag: "{{ image_tag | default('ghcr.io/yourorg/new-api:latest') }}"
@@ -18,10 +18,10 @@
         owner: deploy
         mode: 0755
 
-    - name: Render docker-compose.yml from template
+    - name: Render docker-compose.yaml from template
       template:
-        src: ../templates/docker-compose.yml.j2
-        dest: "{{ compose_dir }}/docker-compose.yml"
+        src: ../templates/docker-compose.yaml.j2
+        dest: "{{ compose_dir }}/docker-compose.yaml"
         owner: deploy
         mode: 0644
 

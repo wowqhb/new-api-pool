@@ -15,9 +15,10 @@ services:
       - ./data:/data
       - ./logs:/app/logs
     environment:
+      - PORT=3000
       - TZ=Asia/Shanghai
-      - SQL_DSN=root:root@tcp(192.168.1.125:3306)/new-api-pool  # Point to the mysql service, uncomment if using MySQL
-      - REDIS_CONN_STRING=redis://:redis6379@192.168.1.125:6379 # ⚠️ IMPORTANT: Change the password in production!
+      - SQL_DSN=root:root@tcp(192.168.1.125:3306)/new-api-pool?charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai  # Point to the mysql service, uncomment if using MySQL
+      - REDIS_CONN_STRING=redis://:redis6379@192.168.1.125:6379/4 # ⚠️ IMPORTANT: Change the password in production!
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
       - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
       - NODE_NAME=new-api-node-1  # 节点名称，用于审计日志中标识节点身份；多节点/容器部署时建议设置 (Node name used in audit logs; recommended when running multiple instances or in containers)
